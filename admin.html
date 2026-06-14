@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de RRHH - Registrar Empleado</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans h-screen flex flex-col items-center justify-center p-6">
+
+    <div class="w-full max-w-lg bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-700">
+        
+        <div class="bg-slate-950 p-6 text-center border-b border-slate-700">
+            <h1 class="text-2xl font-bold text-white flex items-center justify-center gap-2">
+                <i data-lucide="user-plus" class="text-blue-500"></i>
+                Registrar Nuevo Empleado
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">Escanea el rostro y asigna un PIN</p>
+        </div>
+
+        <div class="p-6">
+            <form id="form-registro" class="space-y-5">
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Nombre Completo</label>
+                    <input type="text" id="nombre" required placeholder="Ej. Juan Pérez" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Código PIN (4 a 6 dígitos)</label>
+                    <input type="password" id="pin" required pattern="[0-9]{4,6}" placeholder="****" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white tracking-widest focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Escáner Facial</label>
+                    <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border-2 border-dashed border-slate-600 flex items-center justify-center">
+                        <video id="video-registro" class="absolute inset-0 w-full h-full object-cover hidden" autoplay muted playsinline></video>
+                        
+                        <div id="estado-camara" class="text-center z-10">
+                            <i data-lucide="loader-2" class="w-8 h-8 text-blue-500 animate-spin mx-auto mb-2"></i>
+                            <span id="texto-estado" class="text-sm text-slate-400">Cargando IA...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-guardar" disabled class="w-full mt-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all">
+                    <i data-lucide="scan-face"></i>
+                    <span id="texto-btn">Esperando cámara...</span>
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const video = document.getElementById('video-registro');
+        const estadoCamara = document.getElementById('estado-camara');
+        const textoEstado = document.getElementById('texto-estado');
+        const btnGuardar = document.getElementById('btn-guardar');
+        const textoBtn = document.getElementById('texto-btn');
+        
+        const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
+        let iaLista = false;
+
+        // 1. Cargar IA y encender cámara
+        async function inicializarAdmin() {
+            try {
+                textoEstado.textContent = "Cargando modelos de IA...";
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                textoEstado.textContent = "Encendiendo cámara...";
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.classList.remove('hidden');
+                    estadoCamara.classList.add('hidden');
+                    iaLista = true;
+                    btnGuardar.disabled = false;
+                    textoBtn.textContent = "Escanear Rostro y Guardar";
+                };
+
+            } catch (error) {
+                console.error("Error:", error);
+                textoEstado.textContent = "Error al iniciar cámara o IA.";
+                textoEstado.classList.add('text-red-400');
+            }
+        }
+
+        // Iniciar al cargar la página
+        window.addEventListener('load', inicializarAdmin);
+
+        // 2. Procesar el formulario
+        document.getElementById('form-registro').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Evitar que la página recargue
+
+            if (!iaLista) return alert("La IA aún no está lista.");
+
+            const nombre = document.getElementById('nombre').value;
+            const pin = document.getElementById('pin').value;
+
+            // Cambiar botón a estado de carga
+            const btnOriginalText = textoBtn.textContent;
+            btnGuardar.disabled = true;
+            textoBtn.textContent = "Escaneando rostro... ¡No te muevas!";
+            
+            try {
+                // Tomar una "foto" matemática del rostro actual en el video
+                const deteccion = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                                             .withFaceLandmarks()
+                                             .withFaceDescriptor();
+
+                if (!deteccion) {
+                    alert("❌ No se detectó ningún rostro. Asegúrate de estar bien iluminado y mirar a la cámara.");
+                    btnGuardar.disabled = false;
+                    textoBtn.textContent = btnOriginalText;
+                    return;
+                }
+
+                // Convertir el descriptor (Float32Array) a un Array normal para poder enviarlo por JSON
+                const descriptorArray = Array.from(deteccion.descriptor);
+
+                textoBtn.textContent = "Guardando en Base de Datos...";
+
+                // Enviar al Backend
+                const respuesta = await fetch('http://localhost:3000/api/empleados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre_completo: nombre,
+                        codigo_pin: pin,
+                        face_descriptor: descriptorArray
+                    })
+                });
+
+                const resultado = await respuesta.json();
+
+                if (respuesta.ok) {
+                    alert(`✅ ¡Éxito! Empleado ${resultado.empleado.nombre_completo} registrado correctamente.`);
+                    document.getElementById('form-registro').reset(); // Limpiar formulario
+                } else {
+                    alert(`❌ Error del servidor: ${resultado.error}`);
+                }
+
+            } catch (error) {
+                console.error("Error al registrar:", error);
+                alert("❌ Ocurrió un error al intentar guardar el empleado.");
+            } finally {
+                // Restaurar botón
+                btnGuardar.disabled = false;
+                textoBtn.textContent = btnOriginalText;
+            }
+        });
+    </script>
+</body>
+</html>

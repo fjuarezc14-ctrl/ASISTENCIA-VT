@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Reportes - VT Valetec</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans h-screen p-6 overflow-auto">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Cabecera -->
+        <header class="flex justify-between items-center bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                    <i data-lucide="clipboard-list" class="text-blue-500"></i>
+                    Reporte de Asistencias
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Control detallado de ingresos y salidas</p>
+            </div>
+            <div class="flex gap-4">
+                <a href="admin.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Nuevo Empleado
+                </a>
+            </div>
+        </header>
+
+        <!-- NUEVA ZONA DE FILTROS -->
+        <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700 mb-6 flex flex-col md:flex-row gap-4 items-end">
+            
+            <!-- Filtro Empleado -->
+            <div class="flex-1 w-full">
+                <label class="block text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">Trabajador</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="users" class="h-4 w-4 text-slate-500"></i>
+                    </div>
+                    <select id="filtro-empleado" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white appearance-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                        <option value="TODOS">Todos los trabajadores</option>
+                        <!-- Se llena con JS -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filtro Tiempo -->
+            <div class="flex-1 w-full">
+                <label class="block text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">Periodo</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="calendar" class="h-4 w-4 text-slate-500"></i>
+                    </div>
+                    <select id="filtro-tiempo" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white appearance-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                        <option value="TODOS">Todo el historial</option>
+                        <option value="DIA">Solo Hoy</option>
+                        <option value="SEMANA">Esta Semana</option>
+                        <option value="MES">Este Mes</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Botón Buscar -->
+            <button onclick="cargarReportes()" class="w-full md:w-auto h-[46px] bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-95">
+                <i data-lucide="search" class="w-4 h-4"></i> Filtrar
+            </button>
+        </div>
+
+        <!-- Tabla de Resultados -->
+        <div class="bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-medium border-b border-slate-700">ID</th>
+                            <th class="p-4 font-medium border-b border-slate-700">Empleado</th>
+                            <th class="p-4 font-medium border-b border-slate-700">Fecha</th>
+                            <th class="p-4 font-medium border-b border-slate-700">Hora</th>
+                            <th class="p-4 font-medium border-b border-slate-700">Tipo</th>
+                            <th class="p-4 font-medium border-b border-slate-700">Método</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-reportes" class="text-sm divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-slate-500">
+                                <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500"></i>
+                                Cargando reportes...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Cargar lista de empleados para el selector
+        async function cargarFiltroEmpleados() {
+            try {
+                const respuesta = await fetch('http://localhost:3000/api/empleados');
+                const empleados = await respuesta.json();
+                const select = document.getElementById('filtro-empleado');
+                
+                empleados.forEach(emp => {
+                    const opcion = document.createElement('option');
+                    opcion.value = emp.id;
+                    opcion.textContent = emp.nombre_completo;
+                    select.appendChild(opcion);
+                });
+            } catch (error) {
+                console.error("Error cargando empleados para el filtro:", error);
+            }
+        }
+
+        // Cargar tabla con filtros aplicados
+        async function cargarReportes() {
+            const tbody = document.getElementById('tabla-reportes');
+            const empId = document.getElementById('filtro-empleado').value;
+            const periodo = document.getElementById('filtro-tiempo').value;
+            
+            // Construir la URL con las opciones seleccionadas
+            const url = new URL('http://localhost:3000/api/reportes');
+            if (empId) url.searchParams.append('empleado_id', empId);
+            if (periodo) url.searchParams.append('periodo', periodo);
+
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500"></i>Filtrando...</td></tr>`;
+            lucide.createIcons();
+
+            try {
+                const respuesta = await fetch(url);
+                const datos = await respuesta.json();
+                
+                tbody.innerHTML = ''; 
+                
+                if (datos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay asistencias que coincidan con los filtros.</td></tr>`;
+                    return;
+                }
+
+                datos.forEach(registro => {
+                    const fechaObj = new Date(registro.fecha_hora_marcacion);
+                    const fecha = fechaObj.toLocaleDateString('es-ES');
+                    const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    const tipoClase = registro.tipo === 'INGRESO' 
+                        ? 'bg-emerald-950 text-emerald-400 border-emerald-800' 
+                        : 'bg-rose-950 text-rose-400 border-rose-800';
+
+                    const metodoClase = registro.metodo === 'ROSTRO' 
+                        ? 'bg-blue-950 text-blue-400 border-blue-800' 
+                        : 'bg-slate-700 text-slate-300 border-slate-600';
+
+                    const fila = `
+                        <tr class="hover:bg-slate-750 transition-colors">
+                            <td class="p-4 text-slate-400">#${registro.id}</td>
+                            <td class="p-4 font-semibold text-white">${registro.nombre_completo}</td>
+                            <td class="p-4">${fecha}</td>
+                            <td class="p-4 text-amber-400 font-mono">${hora}</td>
+                            <td class="p-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold border ${tipoClase}">
+                                    ${registro.tipo}
+                                </span>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold border ${metodoClase}">
+                                    ${registro.metodo}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += fila;
+                });
+
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error al conectar con el servidor.</td></tr>`;
+            }
+        }
+
+        // Cargar todo al inicio
+        window.addEventListener('load', () => {
+            cargarFiltroEmpleados();
+            cargarReportes();
+        });
+    </script>
+</body>
+</html>

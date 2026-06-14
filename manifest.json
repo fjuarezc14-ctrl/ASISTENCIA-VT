@@ -1,0 +1,22 @@
+{
+  "name": "VT Valetec - Asistencia",
+  "short_name": "Asistencia VT",
+  "description": "Sistema de Control de Asistencia en Modo Quiosco",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
