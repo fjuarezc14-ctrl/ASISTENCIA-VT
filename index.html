@@ -136,12 +136,22 @@
         let marcacionEnProceso = false;
 
         async function descargarEmpleados() {
-            try {
-                const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados');
-                listaEmpleados = await respuesta.json();
-                prepararReconocedor();
+        try {
+        const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados');
+        if (!respuesta.ok) {
+            console.warn("⚠️ El servidor respondió con un error, continuando sin empleados.");
+            return;
+        }
+        const datos = await respuesta.json();
+        // Validamos que realmente sea una lista antes de procesarla
+        if (Array.isArray(datos) && datos.length > 0) {
+            listaEmpleados = datos;
+            prepararReconocedor();
+            } else {
+            console.log("ℹ️ Base de datos vacía. Registra usuarios en el panel de administración.");
+            }
             } catch (error) {
-                console.error("❌ Error conectando al servidor Backend:", error);
+            console.error("❌ Error conectando al servidor Backend:", error);
             }
         }
 

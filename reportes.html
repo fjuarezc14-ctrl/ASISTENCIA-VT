@@ -100,7 +100,7 @@
         // Cargar lista de empleados para el selector
         async function cargarFiltroEmpleados() {
             try {
-                const respuesta = await fetch('http://localhost:3000/api/empleados');
+                const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados');
                 const empleados = await respuesta.json();
                 const select = document.getElementById('filtro-empleado');
                 
@@ -122,7 +122,7 @@
             const periodo = document.getElementById('filtro-tiempo').value;
             
             // Construir la URL con las opciones seleccionadas
-            const url = new URL('http://localhost:3000/api/reportes');
+            const url = new URL('https://asistencia.valetec.pe/api/reportes');
             if (empId) url.searchParams.append('empleado_id', empId);
             if (periodo) url.searchParams.append('periodo', periodo);
 

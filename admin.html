@@ -133,7 +133,7 @@
                 textoBtn.textContent = "Guardando en Base de Datos...";
 
                 // Enviar al Backend
-                const respuesta = await fetch('http://localhost:3000/api/empleados', {
+                const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
