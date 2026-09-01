@@ -14,14 +14,14 @@
     <link rel="apple-touch-icon" href="icono-192.png">
 
     <style>
-        #canvas-ia { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
-        #video-camara { z-index: 0; }
+        #canvas-ia { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; transform: scaleX(-1); }
+        #video-camara { z-index: 0; transform: scaleX(-1); }
         .z-guia { z-index: 20; } 
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans h-screen flex flex-col justify-between overflow-hidden p-6 select-none">
+<body class="bg-slate-900 text-slate-100 font-sans h-screen flex flex-col overflow-hidden p-6 select-none">
 
-    <header class="text-center my-2 flex flex-col items-center">
+    <header class="text-center my-2 flex flex-col items-center shrink-0">
         <div class="text-4xl tracking-tighter mb-3 flex gap-2 items-center justify-center">
             <span class="text-blue-500 font-black">VT</span>
             <span class="text-white font-black">VALETEC</span>
@@ -30,70 +30,97 @@
         <div id="fecha" class="text-sm text-slate-400 uppercase tracking-wider font-medium">Cargando fecha...</div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center my-4 w-full max-w-md mx-auto relative">
+    <main class="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto relative">
         
-        <div class="flex bg-slate-800 p-1 rounded-2xl w-full mb-5 relative z-guia shadow-inner border border-slate-700">
-            <button id="btn-ingreso" onclick="setTipoMarcacion('INGRESO')" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-blue-600 text-white shadow-md">
-                INGRESO
+        <!-- PASO 1: TIPO DE MARCACIÓN -->
+        <div id="paso-1-tipo" class="w-full flex flex-col gap-6 animate-fade-in">
+            <h2 class="text-xl text-center font-bold text-slate-300 mb-2">¿Qué deseas registrar?</h2>
+            <button onclick="seleccionarTipo('INGRESO')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-12 rounded-3xl shadow-lg border-2 border-blue-500/50 flex flex-col items-center gap-4 transition-all active:scale-95">
+                <i data-lucide="log-in" class="w-16 h-16 text-blue-400"></i>
+                <span class="text-3xl tracking-widest">INGRESO</span>
             </button>
-            <button id="btn-salida" onclick="setTipoMarcacion('SALIDA')" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white">
-                SALIDA
+            <button onclick="seleccionarTipo('SALIDA')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-12 rounded-3xl shadow-lg border-2 border-red-500/50 flex flex-col items-center gap-4 transition-all active:scale-95">
+                <i data-lucide="log-out" class="w-16 h-16 text-red-400"></i>
+                <span class="text-3xl tracking-widest">SALIDA</span>
             </button>
         </div>
 
-        <div id="contenedor-rostro" class="w-full aspect-square bg-slate-950 rounded-3xl border-4 border-slate-800 relative flex flex-col items-center justify-center overflow-hidden shadow-2xl transition-all duration-300">
-            <video id="video-camara" class="absolute inset-0 w-full h-full object-cover" autoplay muted playsinline></video>
-            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent z-10"></div>
-            
-            <div id="icono-carga" class="z-20 flex flex-col items-center p-4 rounded-full bg-slate-950/60 backdrop-blur-sm">
-                <i data-lucide="loader-2" class="w-12 h-12 text-blue-500 animate-spin mb-2"></i>
-                <span id="texto-carga" class="text-xs text-slate-400">Iniciando IA...</span>
-            </div>
-
-            <div class="absolute z-guia border-[3px] border-dashed border-blue-500/70 w-2/3 h-3/4 rounded-[50%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_9999px_rgba(15,23,42,0.5)] transition-colors duration-300" id="ovalo-guia"></div>
-            
-            <p id="mensaje-rostro" class="absolute bottom-6 left-0 right-0 text-center text-sm font-semibold tracking-wide text-white z-guia px-4 drop-shadow-md transition-colors duration-300">
-                Esperando inicialización...
-            </p>
+        <!-- PASO 2: MÉTODO DE MARCACIÓN -->
+        <div id="paso-2-metodo" class="hidden w-full flex flex-col gap-6 animate-fade-in">
+            <h2 class="text-xl text-center font-bold text-slate-300 mb-2">Selecciona el método</h2>
+            <button onclick="seleccionarMetodo('ROSTRO')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-10 rounded-3xl shadow-lg border border-slate-600 flex flex-col items-center gap-4 transition-all active:scale-95">
+                <i data-lucide="scan-face" class="w-14 h-14 text-indigo-400"></i>
+                <span class="text-xl tracking-wide">RECONOCIMIENTO FACIAL</span>
+            </button>
+            <button onclick="seleccionarMetodo('PIN')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-10 rounded-3xl shadow-lg border border-slate-600 flex flex-col items-center gap-4 transition-all active:scale-95">
+                <i data-lucide="keypad" class="w-14 h-14 text-emerald-400"></i>
+                <span class="text-xl tracking-wide">CÓDIGO PIN</span>
+            </button>
+            <button onclick="volverPaso(1)" class="mt-2 text-slate-400 hover:text-white flex items-center justify-center gap-2 py-4">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i> Volver
+            </button>
         </div>
 
-        <div id="contenedor-pin" class="hidden w-full flex flex-col items-center transition-all duration-300">
-            <p class="text-slate-400 text-sm mb-4">Ingresa tu código de 4 dígitos</p>
-            <div class="flex gap-6 mb-6">
-                <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
-                <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
-                <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
-                <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
-            </div>
+        <!-- PASO 3: ACCIÓN (CÁMARA O PIN) -->
+        <div id="paso-3-accion" class="hidden w-full flex flex-col animate-fade-in">
+            <h2 id="titulo-accion" class="text-2xl text-center font-black mb-4 tracking-widest">TITULO</h2>
             
-            <div class="grid grid-cols-3 gap-4 w-full px-2">
-                <button onclick="presionarPIN('1')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">1</button>
-                <button onclick="presionarPIN('2')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">2</button>
-                <button onclick="presionarPIN('3')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">3</button>
-                <button onclick="presionarPIN('4')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">4</button>
-                <button onclick="presionarPIN('5')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">5</button>
-                <button onclick="presionarPIN('6')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">6</button>
-                <button onclick="presionarPIN('7')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">7</button>
-                <button onclick="presionarPIN('8')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">8</button>
-                <button onclick="presionarPIN('9')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">9</button>
-                <button onclick="borrarPIN()" class="bg-red-950/40 text-red-400 text-xl font-bold py-4 rounded-2xl border border-red-900/30 flex items-center justify-center"><i data-lucide="delete"></i></button>
-                <button onclick="presionarPIN('0')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">0</button>
-                <button onclick="limpiarPIN()" class="bg-slate-900 text-slate-500 text-sm font-bold py-4 rounded-2xl border border-slate-800 flex items-center justify-center uppercase tracking-wider">Borrar</button>
+            <!-- CONTENEDOR ROSTRO -->
+            <div id="contenedor-rostro" class="hidden w-full aspect-square bg-slate-950 rounded-3xl border-4 border-slate-800 relative flex flex-col items-center justify-center overflow-hidden shadow-2xl transition-all duration-300">
+                <video id="video-camara" class="absolute inset-0 w-full h-full object-cover" autoplay muted playsinline></video>
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent z-10"></div>
+                
+                <div id="icono-carga" class="z-20 flex flex-col items-center p-4 rounded-full bg-slate-950/60 backdrop-blur-sm">
+                    <i data-lucide="loader-2" class="w-12 h-12 text-blue-500 animate-spin mb-2"></i>
+                    <span id="texto-carga" class="text-xs text-slate-400">Cargando IA...</span>
+                </div>
+
+                <div class="absolute z-guia border-[3px] border-dashed w-2/3 h-3/4 rounded-[50%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_9999px_rgba(15,23,42,0.5)] transition-colors duration-300" id="ovalo-guia"></div>
+                
+                <p id="mensaje-rostro" class="absolute bottom-6 left-0 right-0 text-center text-sm font-semibold tracking-wide text-white z-guia px-4 drop-shadow-md transition-colors duration-300">
+                    Esperando inicialización...
+                </p>
             </div>
+
+            <!-- CONTENEDOR PIN -->
+            <div id="contenedor-pin" class="hidden w-full flex flex-col items-center">
+                <p class="text-slate-400 text-sm mb-4">Ingresa tu código de 4 dígitos</p>
+                <div class="flex gap-6 mb-6">
+                    <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
+                    <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
+                    <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
+                    <div class="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 dot-pin transition-all duration-200"></div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-4 w-full px-2">
+                    <button onclick="presionarPIN('1')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">1</button>
+                    <button onclick="presionarPIN('2')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">2</button>
+                    <button onclick="presionarPIN('3')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">3</button>
+                    <button onclick="presionarPIN('4')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">4</button>
+                    <button onclick="presionarPIN('5')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">5</button>
+                    <button onclick="presionarPIN('6')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">6</button>
+                    <button onclick="presionarPIN('7')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">7</button>
+                    <button onclick="presionarPIN('8')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">8</button>
+                    <button onclick="presionarPIN('9')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">9</button>
+                    <button onclick="borrarPIN()" class="bg-red-950/40 text-red-400 text-xl font-bold py-4 rounded-2xl border border-red-900/30 flex items-center justify-center"><i data-lucide="delete"></i></button>
+                    <button onclick="presionarPIN('0')" class="bg-slate-800 active:bg-slate-700 text-2xl font-bold py-4 rounded-2xl shadow-md border border-slate-700/50">0</button>
+                    <button onclick="limpiarPIN()" class="bg-slate-900 text-slate-500 text-sm font-bold py-4 rounded-2xl border border-slate-800 flex items-center justify-center uppercase tracking-wider">Borrar</button>
+                </div>
+            </div>
+
+            <button onclick="reiniciarFlujo()" class="mt-6 text-slate-400 hover:text-white flex items-center justify-center gap-2 py-4 bg-slate-800 rounded-xl border border-slate-700 w-full">
+                <i data-lucide="x-circle" class="w-5 h-5"></i> Cancelar
+            </button>
         </div>
+
     </main>
-
-    <footer class="w-full max-w-md mx-auto mb-2 relative z-guia">
-        <button id="btn-cambiar" onclick="alternarMetodo()" disabled class="w-full bg-slate-700 text-slate-400 font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 border border-slate-600 shadow-lg opacity-60 transition-all active:scale-[0.98]">
-            <i id="icono-btn" data-lucide="keyboard"></i>
-            <span id="texto-btn">Cargando Sistema...</span>
-        </button>
-    </footer>
 
     <script>
         lucide.createIcons();
 
-        // Reloj
+        // =====================================
+        // RELOJ
+        // =====================================
         function actualizarReloj() {
             const ahora = new Date();
             document.getElementById('reloj').textContent = ahora.toLocaleTimeString('es-ES', { hour12: false });
@@ -103,26 +130,65 @@
         actualizarReloj();
 
         // =====================================
-        // NUEVA LÓGICA: INGRESO / SALIDA
+        // LÓGICA DE FLUJO Y VISTAS
         // =====================================
-        let tipoMarcacionActual = 'INGRESO';
+        let tipoMarcacionActual = ''; // 'INGRESO' o 'SALIDA'
+        let metodoMarcacion = ''; // 'ROSTRO' o 'PIN'
 
-        function setTipoMarcacion(tipo) {
+        function seleccionarTipo(tipo) {
             tipoMarcacionActual = tipo;
-            const btnIngreso = document.getElementById('btn-ingreso');
-            const btnSalida = document.getElementById('btn-salida');
+            document.getElementById('paso-1-tipo').classList.add('hidden');
+            document.getElementById('paso-2-metodo').classList.remove('hidden');
+        }
 
-            if (tipo === 'INGRESO') {
-                btnIngreso.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-blue-600 text-white shadow-md";
-                btnSalida.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white";
-                document.getElementById('ovalo-guia').classList.replace('border-red-500/70', 'border-blue-500/70');
+        async function seleccionarMetodo(metodo) {
+            metodoMarcacion = metodo;
+            document.getElementById('paso-2-metodo').classList.add('hidden');
+            document.getElementById('paso-3-accion').classList.remove('hidden');
+
+            const tituloAccion = document.getElementById('titulo-accion');
+            tituloAccion.textContent = `${tipoMarcacionActual} POR ${metodo === 'ROSTRO' ? 'RECONOCIMIENTO' : 'PIN'}`;
+            tituloAccion.className = `text-2xl text-center font-black mb-4 tracking-widest ${tipoMarcacionActual === 'INGRESO' ? 'text-blue-400' : 'text-red-400'}`;
+
+            if (metodo === 'ROSTRO') {
+                document.getElementById('contenedor-rostro').classList.remove('hidden');
+                document.getElementById('contenedor-pin').classList.add('hidden');
+                
+                // Color del óvalo según tipo
+                const ovalo = document.getElementById('ovalo-guia');
+                ovalo.className = `absolute z-guia border-[3px] border-dashed w-2/3 h-3/4 rounded-[50%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_9999px_rgba(15,23,42,0.5)] transition-colors duration-300 ${tipoMarcacionActual === 'INGRESO' ? 'border-blue-500/70' : 'border-red-500/70'}`;
+
+                document.getElementById('icono-carga').classList.remove('hidden');
+                document.getElementById('texto-carga').textContent = "Encendiendo cámara...";
+                await encenderCamara();
+                iniciarDeteccionRostros();
             } else {
-                btnSalida.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-red-600 text-white shadow-md";
-                btnIngreso.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white";
-                document.getElementById('ovalo-guia').classList.replace('border-blue-500/70', 'border-red-500/70');
+                document.getElementById('contenedor-rostro').classList.add('hidden');
+                document.getElementById('contenedor-pin').classList.remove('hidden');
+                limpiarPIN();
             }
         }
 
+        function volverPaso(paso) {
+            if (paso === 1) {
+                document.getElementById('paso-2-metodo').classList.add('hidden');
+                document.getElementById('paso-1-tipo').classList.remove('hidden');
+            }
+        }
+
+        function reiniciarFlujo() {
+            detenerDeteccionRostros();
+            apagarCamara();
+            document.getElementById('paso-3-accion').classList.add('hidden');
+            document.getElementById('paso-2-metodo').classList.add('hidden');
+            document.getElementById('paso-1-tipo').classList.remove('hidden');
+            tipoMarcacionActual = '';
+            metodoMarcacion = '';
+        }
+
+        // =====================================
+        // INTELIGENCIA ARTIFICIAL Y CÁMARA
+        // =====================================
         const video = document.getElementById('video-camara');
         const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
         
@@ -136,22 +202,16 @@
         let marcacionEnProceso = false;
 
         async function descargarEmpleados() {
-        try {
-        const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados');
-        if (!respuesta.ok) {
-            console.warn("⚠️ El servidor respondió con un error, continuando sin empleados.");
-            return;
-        }
-        const datos = await respuesta.json();
-        // Validamos que realmente sea una lista antes de procesarla
-        if (Array.isArray(datos) && datos.length > 0) {
-            listaEmpleados = datos;
-            prepararReconocedor();
-            } else {
-            console.log("ℹ️ Base de datos vacía. Registra usuarios en el panel de administración.");
-            }
+            try {
+                const respuesta = await fetch('https://asistencia.valetec.pe/api/empleados');
+                if (!respuesta.ok) return;
+                const datos = await respuesta.json();
+                if (Array.isArray(datos) && datos.length > 0) {
+                    listaEmpleados = datos;
+                    prepararReconocedor();
+                }
             } catch (error) {
-            console.error("❌ Error conectando al servidor Backend:", error);
+                console.error("Error conectando al servidor:", error);
             }
         }
 
@@ -166,6 +226,19 @@
 
             if (descriptoresValidos.length > 0) {
                 faceMatcher = new faceapi.FaceMatcher(descriptoresValidos, 0.5); 
+            }
+        }
+
+        async function cargarModelosSilencioso() {
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                modelsLoaded = true;
+            } catch (error) {
+                console.error("Error cargando IA");
             }
         }
 
@@ -187,27 +260,11 @@
             }
         }
 
-        async function cargarModelosYIniciar() {
-            const textoCarga = document.getElementById('texto-carga');
-            try {
-                textoCarga.textContent = "Cargando modelos...";
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
-                modelsLoaded = true;
-                textoCarga.textContent = "IA Lista. Encendiendo cámara...";
-                
-                await encenderCamara();
-                habilitarBotonAlternar(true);
-            } catch (error) {
-                textoCarga.textContent = "Error cargando IA de red";
-            }
-        }
-
         async function iniciarDeteccionRostros() {
-            if (!modelsLoaded) return;
+            if (!modelsLoaded) {
+                document.getElementById('texto-carga').textContent = "Esperando IA...";
+                return;
+            }
 
             if (!canvasIA) {
                 canvasIA = faceapi.createCanvasFromMedia(video);
@@ -233,22 +290,13 @@
                     if (!iconoCarga.classList.contains('hidden')) iconoCarga.classList.add('hidden');
 
                     const resizedResult = faceapi.resizeResults(result, displaySize);
-                    
-                    // Cambia el color de la caja según si es ingreso (azul) o salida (rojo)
                     const colorDeteccion = tipoMarcacionActual === 'INGRESO' ? '#3b82f6' : '#ef4444';
                     faceapi.draw.drawDetections(canvasIA, resizedResult, { withScore: false, color: colorDeteccion });
                     faceapi.draw.drawFaceLandmarks(canvasIA, resizedResult, { color: '#ffffff', lineWidth: 1 });
 
                     const box = result.detection.box;
-                    const centerRostroX = box.x + box.width / 2;
-                    const centerRostroY = box.y + box.height / 2;
-                    const centerIdealeX = video.videoWidth / 2;
-                    const centerIdealeY = video.videoHeight / 2;
-                    const distToleranceX = video.videoWidth * 0.15; 
-                    const distToleranceY = video.videoHeight * 0.15;
-
-                    const estaCentrado = Math.abs(centerRostroX - centerIdealeX) < distToleranceX &&
-                                         Math.abs(centerRostroY - centerIdealeY) < distToleranceY &&
+                    const estaCentrado = Math.abs((box.x + box.width / 2) - (video.videoWidth / 2)) < (video.videoWidth * 0.15) &&
+                                         Math.abs((box.y + box.height / 2) - (video.videoHeight / 2)) < (video.videoHeight * 0.15) &&
                                          box.width > video.videoWidth * 0.4; 
 
                     if (estaCentrado) {
@@ -259,26 +307,24 @@
                         if (faceMatcher) {
                             const coincidencia = faceMatcher.findBestMatch(result.descriptor);
                             if (coincidencia.label !== "unknown") {
-                                registrarAsistenciaRostro(coincidencia.label);
-                                mensajeRostro.textContent = `¡Rostro Reconocido! Guardando ${tipoMarcacionActual}...`;
+                                registrarAsistencia(coincidencia.label, 'ROSTRO');
+                                mensajeRostro.textContent = `¡Reconocido! Guardando ${tipoMarcacionActual}...`;
                             } else {
-                                mensajeRostro.textContent = "Rostro no registrado en base de datos.";
+                                mensajeRostro.textContent = "Rostro no registrado.";
                             }
                         } else {
-                            mensajeRostro.textContent = "¡Rostro centrado! (Falta base de datos)";
+                            mensajeRostro.textContent = "¡Centrado! (Falta base de datos)";
                         }
-
                     } else {
                         ovalo.classList.remove('border-green-500');
                         if(tipoMarcacionActual === 'INGRESO') ovalo.classList.add('border-blue-500/70');
                         else ovalo.classList.add('border-red-500/70');
-                        
                         mensajeRostro.textContent = "Centra tu rostro en el óvalo";
                         mensajeRostro.classList.remove('text-green-300');
                     }
                 } else {
                     ovalo.classList.remove('border-green-500');
-                    mensajeRostro.textContent = "Buscando rostro... Asegúrate que haya luz";
+                    mensajeRostro.textContent = "Buscando rostro...";
                     mensajeRostro.classList.remove('text-green-300');
                 }
             }, 200); 
@@ -294,86 +340,9 @@
             }
         }
 
-        video.addEventListener('play', iniciarDeteccionRostros);
-
-        window.addEventListener('load', async () => {
-            await descargarEmpleados();    
-            await cargarModelosYIniciar(); 
-        });
-
-        // Backend (ROSTRO)
-        async function registrarAsistenciaRostro(empleadoId) {
-            marcacionEnProceso = true; 
-            
-            try {
-                const respuesta = await fetch('https://asistencia.valetec.pe/api/asistencia', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ empleado_id: empleadoId, metodo: 'ROSTRO', tipo: tipoMarcacionActual })
-                });
-
-                const resultado = await respuesta.json();
-                if (respuesta.ok) {
-                    alert(`🤖 ¡${resultado.tipo} Registrado!\n${resultado.nombre}`);
-                }
-            } catch (error) {
-                console.error("Error:", error);
-            }
-
-            setTimeout(() => {
-                marcacionEnProceso = false;
-                // Restaurar color del óvalo
-                const ovalo = document.getElementById('ovalo-guia');
-                ovalo.classList.remove('border-green-500');
-                if(tipoMarcacionActual === 'INGRESO') ovalo.classList.add('border-blue-500/70');
-                else ovalo.classList.add('border-red-500/70');
-            }, 4000); 
-        }
-
-        let modoActual = 'rostro';
-
-        function habilitarBotonAlternar(habilitar) {
-            const btnCambiar = document.getElementById('btn-cambiar');
-            const textoBtn = document.getElementById('texto-btn');
-            if (habilitar) {
-                btnCambiar.disabled = false;
-                btnCambiar.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 border border-blue-500 shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98]";
-                textoBtn.textContent = 'Usar Código PIN';
-            }
-        }
-
-        function alternarMetodo() {
-            const contenedorRostro = document.getElementById('contenedor-rostro');
-            const contenedorPin = document.getElementById('contenedor-pin');
-            const textoBtn = document.getElementById('texto-btn');
-            const iconoBtn = document.getElementById('icono-btn');
-            const btnCambiar = document.getElementById('btn-cambiar');
-            
-            if (modoActual === 'rostro') {
-                detenerDeteccionRostros();
-                apagarCamara();
-                contenedorRostro.classList.add('hidden');
-                contenedorPin.classList.remove('hidden');
-                textoBtn.textContent = 'Usar Reconocimiento Facial';
-                iconoBtn.setAttribute('data-lucide', 'scan-face');
-                btnCambiar.className = "w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 border border-slate-700 shadow-lg transition-all active:scale-[0.98]";
-                modoActual = 'pin';
-            } else {
-                contenedorRostro.classList.remove('hidden');
-                contenedorPin.classList.add('hidden');
-                document.getElementById('icono-carga').classList.remove('hidden');
-                encenderCamara(); 
-                
-                textoBtn.textContent = 'Usar Código PIN';
-                iconoBtn.setAttribute('data-lucide', 'keyboard');
-                btnCambiar.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 border border-blue-500 shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98]";
-                modoActual = 'rostro';
-                limpiarPIN();
-            }
-            lucide.createIcons();
-        }
-
-        // Lógica PIN Backend
+        // =====================================
+        // TECLADO PIN
+        // =====================================
         let pinIngresado = "";
         
         function presionarPIN(numero) {
@@ -388,28 +357,12 @@
 
         async function procesarMarcacionPIN() {
             const empleado = listaEmpleados.find(emp => emp.codigo_pin === pinIngresado);
-
             if (!empleado) {
                 alert("❌ PIN incorrecto.");
                 limpiarPIN();
                 return;
             }
-
-            try {
-                const respuesta = await fetch('https://asistencia.valetec.pe/api/asistencia', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ empleado_id: empleado.id, metodo: 'PIN', tipo: tipoMarcacionActual })
-                });
-
-                const resultado = await respuesta.json();
-                if (respuesta.ok) {
-                    alert(`✅ ¡${resultado.tipo} registrado!\n${resultado.nombre}`);
-                } 
-            } catch (error) {
-                alert("❌ Error de servidor.");
-            }
-            limpiarPIN();
+            registrarAsistencia(empleado.id, 'PIN');
         }
 
         function borrarPIN() { pinIngresado = pinIngresado.slice(0, -1); actualizarPuntosPIN(); }
@@ -427,6 +380,39 @@
                 }
             });
         }
+
+        // =====================================
+        // BACKEND (PETICIÓN COMÚN)
+        // =====================================
+        async function registrarAsistencia(empleadoId, metodo) {
+            marcacionEnProceso = true; 
+            try {
+                const respuesta = await fetch('https://asistencia.valetec.pe/api/asistencia', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_id: empleadoId, metodo: metodo, tipo: tipoMarcacionActual })
+                });
+
+                const resultado = await respuesta.json();
+                if (respuesta.ok) {
+                    alert(`✅ ¡${resultado.tipo} Registrado!\n${resultado.nombre}`);
+                    reiniciarFlujo(); // Vuelve al paso 1 luego de marcar
+                } else {
+                    alert(`❌ Error: ${resultado.error || 'No se pudo registrar'}`);
+                    limpiarPIN();
+                }
+            } catch (error) {
+                alert("❌ Error de servidor.");
+                limpiarPIN();
+            }
+            marcacionEnProceso = false; 
+        }
+
+        // Inicialización Silenciosa al cargar la página
+        window.addEventListener('load', async () => {
+            await descargarEmpleados();    
+            await cargarModelosSilencioso(); 
+        });
     </script>
 </body>
 </html>
