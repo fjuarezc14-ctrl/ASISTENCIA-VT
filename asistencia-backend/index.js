@@ -48,16 +48,68 @@ app.post('/api/empleados', async (req, res) => {
     res.status(500).json({ error: 'Error interno al crear el empleado' });
   }
 });
-// Endpoint 2: Guardar asistencia (AHORA CON INGRESO/SALIDA)
+// Endpoint 2: Guardar asistencia (CON AUTO-SALIDA A LAS 8:00 PM)
 app.post('/api/asistencia', async (req, res) => {
-  const { empleado_id, metodo, tipo } = req.body;
+  const { empleado_id, metodo } = req.body; 
   
-  // Si no envían el tipo, por defecto será INGRESO
-  const tipoAsistencia = tipo ? tipo.toUpperCase() : 'INGRESO'; 
-
   try {
-    const query = 'INSERT INTO registros_asistencia (empleado_id, metodo, tipo) VALUES ($1, $2, $3) RETURNING id, fecha_hora_marcacion';
-    const result = await db.query(query, [empleado_id, metodo.toUpperCase(), tipoAsistencia]);
+    const lastMarkQuery = `
+      SELECT tipo, fecha_hora_marcacion 
+      FROM registros_asistencia 
+      WHERE empleado_id = $1 
+      ORDER BY fecha_hora_marcacion DESC LIMIT 1
+    `;
+    const lastMarkResult = await db.query(lastMarkQuery, [empleado_id]);
+
+    let tipoAsistencia = 'INGRESO';
+    let mensajeExtra = '';
+
+    if (lastMarkResult.rows.length > 0) {
+      const ultimaMarcacion = lastMarkResult.rows[0];
+      const fechaUltima = new Date(ultimaMarcacion.fecha_hora_marcacion);
+      const ahora = new Date();
+      
+      // 1. Validar Anti-Doble Clic (Bloqueo de 3 minutos)
+      const diferenciaMinutos = (ahora - fechaUltima) / (1000 * 60);
+      if (diferenciaMinutos < 3) {
+        return res.status(429).json({ 
+          error: 'Acabas de registrar asistencia. Espera unos minutos antes de volver a marcar.' 
+        });
+      }
+
+      // 2. Lógica de Cambio de Estado y Días
+      const esMismoDia = fechaUltima.toDateString() === ahora.toDateString();
+
+      if (esMismoDia) {
+        // Mismo día: Alternamos entre INGRESO y SALIDA
+        tipoAsistencia = (ultimaMarcacion.tipo === 'INGRESO') ? 'SALIDA' : 'INGRESO';
+      } else {
+        // Día diferente: Revisamos si dejó el turno de ayer sin cerrar
+        if (ultimaMarcacion.tipo === 'INGRESO') {
+          
+          // --- AUTO-CIERRE A LAS 8:00 PM DEL DÍA DEL INGRESO ---
+          const fechaSalidaAutomatica = new Date(ultimaMarcacion.fecha_hora_marcacion);
+          fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 20:00:00 = 8:00 PM local
+          
+          // Insertamos la salida faltante obligando a la base de datos a usar la fecha/hora de ayer
+          const autoSalidaQuery = `
+            INSERT INTO registros_asistencia (empleado_id, metodo, tipo, fecha_hora_marcacion) 
+            VALUES ($1, $2, $3, $4)
+          `;
+          // Le ponemos 'SISTEMA_AUTO' en el método para que en el reporte sepan que no fue el empleado
+          await db.query(autoSalidaQuery, [empleado_id, 'SISTEMA_AUTO', 'SALIDA', fechaSalidaAutomatica]);
+          
+          mensajeExtra = ' (Aviso: El sistema cerró tu turno anterior a las 8:00 PM por omisión)';
+        }
+        
+        // Empieza su nuevo día
+        tipoAsistencia = 'INGRESO'; 
+      }
+    }
+
+    // 3. Insertar el registro actual (el que el empleado está haciendo hoy/ahora)
+    const insertQuery = 'INSERT INTO registros_asistencia (empleado_id, metodo, tipo) VALUES ($1, $2, $3) RETURNING id, fecha_hora_marcacion';
+    const result = await db.query(insertQuery, [empleado_id, (metodo || 'DESCONOCIDO').toUpperCase(), tipoAsistencia]);
     const nuevaMarcacion = result.rows[0];
 
     const empResult = await db.query('SELECT nombre_completo FROM empleados WHERE id = $1', [empleado_id]);
@@ -67,13 +119,14 @@ app.post('/api/asistencia', async (req, res) => {
     
     res.status(201).json({ 
       success: true, 
-      mensaje: 'Asistencia registrada', 
+      mensaje: `Asistencia de ${tipoAsistencia} registrada${mensajeExtra}`, 
       nombre: nombre,
       tipo: tipoAsistencia 
     });
+
   } catch (err) {
     console.error('Error POST asistencia:', err);
-    res.status(500).json({ error: 'Error al registrar asistencia' });
+    res.status(500).json({ error: 'Error interno al registrar la asistencia' });
   }
 });
 
