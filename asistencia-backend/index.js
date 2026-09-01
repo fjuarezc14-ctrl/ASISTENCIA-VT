@@ -3,10 +3,20 @@ const cors = require('cors');
 const db = require('./db');
 require('dotenv').config();
 
+// 1. PRIMERO inicializamos la aplicación 'app'
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// 2. LUEGO definimos las opciones de CORS estricto
+const corsOptions = {
+    origin: 'https://registro.valetec.pe', // Dominio exacto de tu frontend sin '/' al final
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
+// 3. APLICAMOS el CORS estricto y el lector de JSON
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Endpoint 1: Obtener empleados
@@ -19,6 +29,7 @@ app.get('/api/empleados', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener empleados' });
   }
 });
+
 // Endpoint 3: Crear nuevo empleado (Para el Panel de Admin)
 app.post('/api/empleados', async (req, res) => {
   const { nombre_completo, codigo_pin, face_descriptor } = req.body;
@@ -48,6 +59,7 @@ app.post('/api/empleados', async (req, res) => {
     res.status(500).json({ error: 'Error interno al crear el empleado' });
   }
 });
+
 // Endpoint 2: Guardar asistencia (CON AUTO-SALIDA A LAS 8:00 PM)
 app.post('/api/asistencia', async (req, res) => {
   const { empleado_id, metodo } = req.body; 
