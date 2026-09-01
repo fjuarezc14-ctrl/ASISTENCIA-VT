@@ -5,7 +5,7 @@ require('dotenv').config();
 
 // 1. PRIMERO inicializamos la aplicación 'app'
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3008;
 
 // 2. LUEGO definimos las opciones de CORS estricto
 const corsOptions = {
