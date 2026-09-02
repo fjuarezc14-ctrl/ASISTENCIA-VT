@@ -60,9 +60,9 @@ app.post('/api/empleados', async (req, res) => {
   }
 });
 
-// Endpoint 2: Guardar asistencia (CON AUTO-SALIDA A LAS 8:00 PM)
+// Endpoint 2: Guardar asistencia (LÓGICA ESTRICTA INGRESO/SALIDA)
 app.post('/api/asistencia', async (req, res) => {
-  const { empleado_id, metodo } = req.body; 
+  const { empleado_id, metodo, tipo } = req.body; 
   
   try {
     const lastMarkQuery = `
@@ -73,7 +73,7 @@ app.post('/api/asistencia', async (req, res) => {
     `;
     const lastMarkResult = await db.query(lastMarkQuery, [empleado_id]);
 
-    let tipoAsistencia = 'INGRESO';
+    let tipoAsistencia = tipo ? tipo.toUpperCase() : null;
     let mensajeExtra = '';
 
     if (lastMarkResult.rows.length > 0) {
@@ -81,58 +81,49 @@ app.post('/api/asistencia', async (req, res) => {
       const fechaUltima = new Date(ultimaMarcacion.fecha_hora_marcacion);
       const ahora = new Date();
       
-      // 1. Validar Anti-Doble Clic (Bloqueo de 3 minutos)
-      const diferenciaMinutos = (ahora - fechaUltima) / (1000 * 60);
-      if (diferenciaMinutos < 3) {
-        return res.status(429).json({ 
-          error: 'Acabas de registrar asistencia. Espera unos minutos antes de volver a marcar.' 
+      // Ajuste al reloj de Perú (UTC -5)
+      const fechaUltimaPeru = new Date(fechaUltima.getTime() - (5 * 60 * 60 * 1000));
+      const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+      const esMismoDia = fechaUltimaPeru.getUTCFullYear() === ahoraPeru.getUTCFullYear() && 
+                         fechaUltimaPeru.getUTCMonth() === ahoraPeru.getUTCMonth() && 
+                         fechaUltimaPeru.getUTCDate() === ahoraPeru.getUTCDate();
+
+      // 1. NUEVA LÓGICA DE BLOQUEO POR ESTADO (Reemplaza los 3 minutos de espera)
+      // Si es el mismo día y el trabajador intenta marcar la misma acción que ya hizo:
+      if (esMismoDia && tipoAsistencia === ultimaMarcacion.tipo) {
+        const accionCorrecta = ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
+        return res.status(400).json({ 
+            error: `Usted ya marcó ${ultimaMarcacion.tipo}. Por favor, marque ${accionCorrecta}.` 
         });
       }
 
-      // 2. Lógica de Cambio de Estado y Días
-      const esMismoDia = fechaUltima.toDateString() === ahora.toDateString();
-
-      if (esMismoDia) {
-        // Mismo día: Alternamos entre INGRESO y SALIDA
-        tipoAsistencia = (ultimaMarcacion.tipo === 'INGRESO') ? 'SALIDA' : 'INGRESO';
-      } else {
-        // Día diferente: Revisamos si dejó el turno de ayer sin cerrar
-        if (ultimaMarcacion.tipo === 'INGRESO') {
-          
-          // --- AUTO-CIERRE A LAS 8:00 PM DEL DÍA DEL INGRESO ---
-          const fechaSalidaAutomatica = new Date(ultimaMarcacion.fecha_hora_marcacion);
-          fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 20:00:00 = 8:00 PM local
-          
-          // Insertamos la salida faltante obligando a la base de datos a usar la fecha/hora de ayer
-          const autoSalidaQuery = `
-            INSERT INTO registros_asistencia (empleado_id, metodo, tipo, fecha_hora_marcacion) 
-            VALUES ($1, $2, $3, $4)
-          `;
-          // Le ponemos 'SISTEMA_AUTO' en el método para que en el reporte sepan que no fue el empleado
-          await db.query(autoSalidaQuery, [empleado_id, 'SISTEMA_AUTO', 'SALIDA', fechaSalidaAutomatica]);
-          
-          mensajeExtra = ' (Aviso: El sistema cerró tu turno anterior a las 8:00 PM por omisión)';
-        }
-        
-        // Empieza su nuevo día
-        tipoAsistencia = 'INGRESO'; 
+      // Fallback: Si el frontend no envía 'tipo' por alguna razón
+      if (!tipoAsistencia) {
+         tipoAsistencia = esMismoDia && ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
       }
+
+      // 2. Auto-Cierre: Si inicia un nuevo día y olvidó marcar salida ayer
+      if (!esMismoDia && ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
+          const fechaSalidaAutomatica = new Date(fechaUltima);
+          fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 8:00 PM del día anterior
+          
+          const autoSalidaQuery = `INSERT INTO registros_asistencia (empleado_id, metodo, tipo, fecha_hora_marcacion) VALUES ($1, $2, $3, $4)`;
+          await db.query(autoSalidaQuery, [empleado_id, 'SISTEMA_AUTO', 'SALIDA', fechaSalidaAutomatica]);
+          mensajeExtra = ' (Aviso: El sistema cerró tu turno de ayer por omisión)';
+      }
+    } else if (!tipoAsistencia) {
+      tipoAsistencia = 'INGRESO'; // Primer registro de su vida
     }
 
-    // 3. Insertar el registro actual (el que el empleado está haciendo hoy/ahora)
+    // 3. Insertar el registro actual
     const insertQuery = 'INSERT INTO registros_asistencia (empleado_id, metodo, tipo) VALUES ($1, $2, $3) RETURNING id, fecha_hora_marcacion';
     const result = await db.query(insertQuery, [empleado_id, (metodo || 'DESCONOCIDO').toUpperCase(), tipoAsistencia]);
-    const nuevaMarcacion = result.rows[0];
-
-    const empResult = await db.query('SELECT nombre_completo FROM empleados WHERE id = $1', [empleado_id]);
-    const nombre = empResult.rows[0]?.nombre_completo || 'Desconocido';
-
-    console.log(`✅ ${tipoAsistencia}: ${nombre} (${metodo}) - ${nuevaMarcacion.fecha_hora_marcacion.toLocaleTimeString('es-ES')}`);
     
+    const empResult = await db.query('SELECT nombre_completo FROM empleados WHERE id = $1', [empleado_id]);
     res.status(201).json({ 
       success: true, 
       mensaje: `Asistencia de ${tipoAsistencia} registrada${mensajeExtra}`, 
-      nombre: nombre,
+      nombre: empResult.rows[0]?.nombre_completo || 'Desconocido',
       tipo: tipoAsistencia 
     });
 
