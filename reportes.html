@@ -14,10 +14,112 @@
 
     <style>
         @media print {
-            header, .no-print { display: none !important; }
-            body { background: white !important; color: black !important; padding: 0 !important; }
-            table { width: 100% !important; border: 1px solid #ccc !important; }
-            th, td { border: 1px solid #ddd !important; padding: 8px !important; color: black !important; }
+            /* Ocultar elementos no imprimibles */
+            header, .no-print, #toast, select, button { display: none !important; }
+
+            /* Configuración de página */
+            @page {
+                margin: 12mm;
+                size: portrait;
+            }
+
+            body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-size: 10pt !important;
+            }
+
+            /* Forzar eliminación de fondos oscuros en todos los contenedores */
+            div, section, main, table, tr {
+                background: transparent !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+
+            .max-w-6xl {
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Cabecera formal de documento para impresión */
+            .print-only-header {
+                display: block !important;
+                margin-bottom: 15px !important;
+                border-bottom: 2px solid #0f172a !important;
+                padding-bottom: 8px !important;
+            }
+
+            /* Tabla estilizada para papel */
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                border: 1px solid #cbd5e1 !important;
+            }
+
+            thead tr, thead th {
+                background-color: #f1f5f9 !important;
+                color: #0f172a !important;
+                border: 1px solid #94a3b8 !important;
+                padding: 6px 8px !important;
+                font-weight: 800 !important;
+                font-size: 9pt !important;
+                text-transform: uppercase !important;
+            }
+
+            tbody td {
+                background-color: #ffffff !important;
+                color: #1e293b !important;
+                border: 1px solid #cbd5e1 !important;
+                padding: 6px 8px !important;
+                font-size: 9.5pt !important;
+            }
+
+            /* Badges legibles en blanco y negro o color */
+            span.border {
+                background: transparent !important;
+                border: 1.5px solid #475569 !important;
+                font-weight: bold !important;
+                padding: 2px 6px !important;
+            }
+
+            span.bg-emerald-950 {
+                border-color: #059669 !important;
+                color: #047857 !important;
+            }
+            span.bg-rose-950 {
+                border-color: #e11d48 !important;
+                color: #be123c !important;
+            }
+            span.bg-blue-950 {
+                border-color: #2563eb !important;
+                color: #1d4ed8 !important;
+            }
+            span.bg-purple-950 {
+                border-color: #7c3aed !important;
+                color: #6d28d9 !important;
+            }
+            span.bg-amber-950 {
+                border-color: #d97706 !important;
+                color: #b45309 !important;
+            }
+
+            /* Convertir textos claros de modo oscuro a oscuro legible */
+            .text-white, .text-slate-300, .text-slate-400, .text-amber-400 {
+                color: #0f172a !important;
+            }
+            .font-mono {
+                font-weight: bold !important;
+            }
+        }
+
+        /* Ocultar la cabecera de impresión en vista normal */
+        .print-only-header {
+            display: none;
         }
     </style>
 </head>
@@ -151,9 +253,23 @@
                     <button onclick="exportarCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow transition-all flex items-center gap-2 active:scale-95">
                         <i data-lucide="download" class="w-4 h-4"></i> Exportar Excel (CSV)
                     </button>
-                    <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 active:scale-95">
+                    <button onclick="imprimirReporte()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 active:scale-95">
                         <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CABECERA FORMAL PARA IMPRESIÓN -->
+        <div class="print-only-header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h1 style="font-size: 18pt; font-weight: 900; margin: 0; color: #0f172a; letter-spacing: -0.5px;">VT VALETEC</h1>
+                    <p style="font-size: 11pt; margin: 2px 0 0; color: #475569; font-weight: 600;">Reporte de Control de Asistencias del Personal</p>
+                </div>
+                <div style="text-align: right; font-size: 9pt; color: #64748b;">
+                    <p style="margin: 0;"><strong>Fecha de Emisión:</strong> <span id="fecha-impresion"></span></p>
+                    <p style="margin: 2px 0 0;"><strong>Filtro Aplicado:</strong> <span id="filtro-impresion"></span></p>
                 </div>
             </div>
         </div>
@@ -303,7 +419,29 @@
             cargarMetricas();
         }
 
-        // 4. Exportar a CSV (Compatible con Excel mediante BOM UTF-8)
+        // 4. Preparar e Imprimir Reporte
+        function imprimirReporte() {
+            const ahora = new Date();
+            const elemFecha = document.getElementById('fecha-impresion');
+            const elemFiltro = document.getElementById('filtro-impresion');
+            const selectPeriodo = document.getElementById('filtro-tiempo');
+            const selectEmp = document.getElementById('filtro-empleado');
+            const selectTipo = document.getElementById('filtro-tipo');
+
+            if (elemFecha) {
+                elemFecha.textContent = ahora.toLocaleDateString('es-ES') + ' ' + ahora.toLocaleTimeString('es-ES');
+            }
+            if (elemFiltro) {
+                const periodoTexto = selectPeriodo.options[selectPeriodo.selectedIndex]?.text || 'Hoy';
+                const empTexto = selectEmp.options[selectEmp.selectedIndex]?.text || 'Todos';
+                const tipoTexto = selectTipo.options[selectTipo.selectedIndex]?.text || 'Todos';
+                elemFiltro.textContent = `${periodoTexto} | ${empTexto} | ${tipoTexto}`;
+            }
+
+            window.print();
+        }
+
+        // 5. Exportar a CSV (Compatible con Excel mediante BOM UTF-8)
         function exportarCSV() {
             if (!datosReportesActuales || datosReportesActuales.length === 0) {
                 alert("No hay registros para exportar con los filtros actuales.");
