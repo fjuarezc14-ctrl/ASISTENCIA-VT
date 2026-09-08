@@ -7,15 +7,31 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3008;
 
-// 2. LUEGO definimos las opciones de CORS estricto
+// 2. Definimos las opciones de CORS para producción y desarrollo
+const allowedOrigins = [
+    'https://registro.valetec.pe',
+    'https://asistencia.valetec.pe',
+    'http://localhost:3007',
+    'http://localhost:3008',
+    'http://127.0.0.1:3007',
+    'http://127.0.0.1:3008'
+];
+
 const corsOptions = {
-    origin: 'https://registro.valetec.pe', // Dominio exacto de tu frontend sin '/' al final
+    origin: function (origin, callback) {
+        // Permitir solicitudes sin origen (como curl o Postman) o si está en la lista permitida
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Bloqueado por política CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 };
 
-// 3. APLICAMOS el CORS estricto y el lector de JSON
+// 3. APLICAMOS el CORS y el lector de JSON
 app.use(cors(corsOptions));
 app.use(express.json());
 
