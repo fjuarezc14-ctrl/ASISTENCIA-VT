@@ -1,0 +1,57 @@
+# ==========================================================
+# Docker Compose para ASISTENCIA-VT by VALETEC
+# Orquestación: PostgreSQL 16 + Backend Node.js + Frontend Nginx
+# ==========================================================
+
+services:
+  # 1. Base de Datos Relacional PostgreSQL 16
+  asistencia-db:
+    image: postgres:16-alpine
+    container_name: asistencia-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-Valeria29}
+      POSTGRES_DB: ${DB_NAME:-vt_asistencia}
+    ports:
+      - "${DB_PORT:-5438}:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-vt_asistencia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Servicio de Backend (API Node.js Express)
+  asistencia-backend:
+    build:
+      context: ./asistencia-backend
+      dockerfile: Dockerfile
+    container_name: asistencia-backend
+    restart: always
+    ports:
+      - "${BACKEND_PORT:-3008}:3008"
+    environment:
+      - PORT=3008
+      - DB_HOST=asistencia-db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-Valeria29}
+      - DB_NAME=${DB_NAME:-vt_asistencia}
+    depends_on:
+      asistencia-db:
+        condition: service_healthy
+
+  # 3. Servicio de Frontend (Nginx + Static UI + Proxy /api/)
+  asistencia-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: asistencia-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-3007}:80"
+    depends_on:
+      - asistencia-backend
