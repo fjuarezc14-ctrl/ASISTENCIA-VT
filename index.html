@@ -227,15 +227,33 @@
 
         function prepararReconocedor() {
             const descriptoresValidos = listaEmpleados.map(emp => {
+                if (!emp.face_descriptor) return null;
                 let desc = typeof emp.face_descriptor === 'string' ? JSON.parse(emp.face_descriptor) : emp.face_descriptor;
-                if (Array.isArray(desc) && desc.length === 128) {
-                    return new faceapi.LabeledFaceDescriptors(emp.id.toString(), [new Float32Array(desc)]);
+                let floatDescriptors = [];
+
+                if (Array.isArray(desc)) {
+                    // Caso A: Multi-descriptor [[...128], [...128], ...]
+                    if (desc.length > 0 && Array.isArray(desc[0])) {
+                        floatDescriptors = desc
+                            .filter(d => Array.isArray(d) && d.length === 128)
+                            .map(d => new Float32Array(d));
+                    } 
+                    // Caso B: Descriptor individual [...128]
+                    else if (desc.length === 128 && typeof desc[0] === 'number') {
+                        floatDescriptors = [new Float32Array(desc)];
+                    }
+                }
+
+                if (floatDescriptors.length > 0) {
+                    return new faceapi.LabeledFaceDescriptors(emp.id.toString(), floatDescriptors);
                 }
                 return null;
             }).filter(d => d !== null);
 
             if (descriptoresValidos.length > 0) {
-                faceMatcher = new faceapi.FaceMatcher(descriptoresValidos, 0.5); 
+                // Umbral calibrado a 0.48: estricto para eliminar falsos positivos (no confundir personas)
+                // y maximizado por las múltiples muestras para eliminar falsos rechazos
+                faceMatcher = new faceapi.FaceMatcher(descriptoresValidos, 0.48); 
             }
         }
 
@@ -278,6 +296,10 @@
             }
         }
 
+        let candidatoMatchId = null;
+        let conteoConfirmacion = 0;
+        const CONFIRMACIONES_REQUERIDAS = 2; // Requiere 2 fotogramas consecutivos consistentes (anti-flicker)
+
         async function iniciarDeteccionRostros() {
             if (!modelsLoaded || !video.srcObject) return;
 
@@ -313,35 +335,62 @@
                     const centerRostroY = box.y + box.height / 2;
                     const centerIdealeX = (video.videoWidth || 720) / 2;
                     const centerIdealeY = (video.videoHeight || 720) / 2;
-                    const distToleranceX = (video.videoWidth || 720) * 0.18; 
-                    const distToleranceY = (video.videoHeight || 720) * 0.18;
+                    
+                    // Rango de encuadre ergonómico
+                    const distToleranceX = (video.videoWidth || 720) * 0.28; 
+                    const distToleranceY = (video.videoHeight || 720) * 0.28;
+                    const minFaceWidth = (video.videoWidth || 720) * 0.16;
 
                     const estaCentrado = Math.abs(centerRostroX - centerIdealeX) < distToleranceX &&
                                          Math.abs(centerRostroY - centerIdealeY) < distToleranceY &&
-                                         box.width > (video.videoWidth || 720) * 0.35; 
+                                         box.width > minFaceWidth;
 
                     if (estaCentrado) {
                         ovalo.classList.replace('border-blue-500/70', 'border-green-500');
                         ovalo.classList.replace('border-red-500/70', 'border-green-500');
-                        mensajeRostro.classList.add('text-green-300');
 
                         if (faceMatcher) {
                             const coincidencia = faceMatcher.findBestMatch(result.descriptor);
                             if (coincidencia.label !== "unknown") {
-                                mensajeRostro.textContent = `¡Rostro Reconocido! Guardando ${tipoMarcacionActual}...`;
-                                registrarAsistencia(coincidencia.label, 'ROSTRO');
+                                if (coincidencia.label === candidatoMatchId) {
+                                    conteoConfirmacion++;
+                                } else {
+                                    candidatoMatchId = coincidencia.label;
+                                    conteoConfirmacion = 1;
+                                }
+
+                                const emp = listaEmpleados.find(e => e.id.toString() === coincidencia.label);
+                                const empNombre = emp ? emp.nombre_completo : 'Empleado';
+
+                                if (conteoConfirmacion >= CONFIRMACIONES_REQUERIDAS) {
+                                    mensajeRostro.textContent = `¡Rostro Identificado! (${empNombre})`;
+                                    mensajeRostro.classList.add('text-green-300');
+                                    candidatoMatchId = null;
+                                    conteoConfirmacion = 0;
+                                    registrarAsistencia(coincidencia.label, 'ROSTRO');
+                                } else {
+                                    mensajeRostro.textContent = `Verificando identidad...`;
+                                    mensajeRostro.classList.add('text-green-300');
+                                }
                             } else {
-                                mensajeRostro.textContent = "Rostro no registrado en base de datos.";
+                                candidatoMatchId = null;
+                                conteoConfirmacion = 0;
+                                mensajeRostro.textContent = "Rostro no registrado en el sistema";
+                                mensajeRostro.classList.remove('text-green-300');
                             }
                         } else {
-                            mensajeRostro.textContent = "¡Rostro centrado! (Sin empleados en BD)";
+                            mensajeRostro.textContent = "¡Rostro centrado! (Sin empleados en base de datos)";
                         }
                     } else {
+                        candidatoMatchId = null;
+                        conteoConfirmacion = 0;
                         restaurarOvalo();
                         mensajeRostro.textContent = "Centra tu rostro en el óvalo";
                         mensajeRostro.classList.remove('text-green-300');
                     }
                 } else {
+                    candidatoMatchId = null;
+                    conteoConfirmacion = 0;
                     restaurarOvalo();
                     mensajeRostro.textContent = "Buscando rostro... Asegúrate de tener buena luz";
                     mensajeRostro.classList.remove('text-green-300');
@@ -361,6 +410,8 @@
         }
 
         function detenerDeteccionRostros() {
+            candidatoMatchId = null;
+            conteoConfirmacion = 0;
             if (intervalDetection) {
                 clearInterval(intervalDetection);
                 intervalDetection = null;
