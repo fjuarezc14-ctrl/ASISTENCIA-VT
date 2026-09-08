@@ -1,7 +1,7 @@
 {
   "name": "VT Valetec - Asistencia",
   "short_name": "Asistencia VT",
-  "description": "Sistema de Control de Asistencia en Modo Quiosco",
+  "description": "Sistema de Control y Marcación de Asistencia",
   "start_url": "./index.html",
   "display": "fullscreen",
   "background_color": "#0f172a",

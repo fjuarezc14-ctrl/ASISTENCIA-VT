@@ -92,7 +92,7 @@ app.get('/api/auth/verify', verificarAdmin, (req, res) => {
 // RUTAS DE EMPLEADOS
 // ==========================================================
 
-// Endpoint 1: Obtener empleados para el Quiosco Biométrico (SEGURO: SIN PIN)
+// Endpoint 1: Obtener empleados para la Terminal de Marcación (SEGURO: SIN PIN)
 app.get('/api/empleados', async (req, res) => {
     try {
         // VULN-01 CORREGIDA: Se excluye permanentemente codigo_pin
