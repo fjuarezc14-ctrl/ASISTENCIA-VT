@@ -4,90 +4,181 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Reportes - VT Valetec</title>
-    <!-- Tailwind CSS -->
+    
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Iconos Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 font-sans h-screen p-6 overflow-auto">
 
-    <div class="max-w-6xl mx-auto">
-        <!-- Cabecera -->
-        <header class="flex justify-between items-center bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 mb-6">
-            <div>
-                <h1 class="text-2xl font-bold text-white flex items-center gap-3">
-                    <i data-lucide="clipboard-list" class="text-blue-500"></i>
-                    Reporte de Asistencias
-                </h1>
-                <p class="text-slate-400 text-sm mt-1">Control detallado de ingresos y salidas</p>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="apple-touch-icon" href="icono-192.png">
+
+    <style>
+        @media print {
+            header, .no-print { display: none !important; }
+            body { background: white !important; color: black !important; padding: 0 !important; }
+            table { width: 100% !important; border: 1px solid #ccc !important; }
+            th, td { border: 1px solid #ddd !important; padding: 8px !important; color: black !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-4 sm:p-6 overflow-y-auto">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- CABECERA PRINCIPAL CON NAVEGACIÓN -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/90 p-5 rounded-3xl shadow-xl border border-slate-700">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-emerald-600/20 text-emerald-400 rounded-2xl border border-emerald-500/30">
+                    <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                        <span>Reporte de Asistencias</span>
+                        <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-900/60 text-emerald-400 border border-emerald-800">Historial</span>
+                    </h1>
+                    <p class="text-slate-400 text-xs sm:text-sm">Auditoría detallada de ingresos, salidas y horas laborales</p>
+                </div>
             </div>
-            <div class="flex gap-4">
-                <a href="admin.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                    <i data-lucide="user-plus" class="w-4 h-4"></i> Nuevo Empleado
+
+            <!-- BOTONES DE ACCESO RÁPIDO -->
+            <div class="flex items-center gap-2 no-print">
+                <a href="index.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                    <i data-lucide="scan-face" class="w-4 h-4 text-blue-400"></i>
+                    Quiosco
+                </a>
+                <a href="admin.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                    <i data-lucide="user-plus" class="w-4 h-4 text-blue-400"></i>
+                    Empleados
                 </a>
             </div>
         </header>
 
-        <!-- NUEVA ZONA DE FILTROS -->
-        <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700 mb-6 flex flex-col md:flex-row gap-4 items-end">
-            
-            <!-- Filtro Empleado -->
-            <div class="flex-1 w-full">
-                <label class="block text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">Trabajador</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i data-lucide="users" class="h-4 w-4 text-slate-500"></i>
-                    </div>
-                    <select id="filtro-empleado" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white appearance-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                        <option value="TODOS">Todos los trabajadores</option>
-                        <!-- Se llena con JS -->
-                    </select>
+        <!-- TARJETAS DE MÉTRICAS RÁPIDAS -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow flex items-center gap-3">
+                <div class="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl">
+                    <i data-lucide="clock" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 uppercase font-bold">Asistencias Hoy</p>
+                    <p id="met-asistencias" class="text-xl font-black text-white">0</p>
                 </div>
             </div>
-
-            <!-- Filtro Tiempo -->
-            <div class="flex-1 w-full">
-                <label class="block text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">Periodo</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i data-lucide="calendar" class="h-4 w-4 text-slate-500"></i>
-                    </div>
-                    <select id="filtro-tiempo" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white appearance-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                        <!-- 'Solo Hoy' ahora es la opción predeterminada con 'selected' -->
-                        <option value="DIA" selected>Solo Hoy</option>
-                        <option value="SEMANA">Esta Semana</option>
-                        <option value="MES">Este Mes</option>
-                        <option value="TODOS">Todo el historial</option>
-                    </select>
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow flex items-center gap-3">
+                <div class="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                    <i data-lucide="log-in" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 uppercase font-bold">Ingresos Hoy</p>
+                    <p id="met-ingresos" class="text-xl font-black text-emerald-400">0</p>
                 </div>
             </div>
-
-            <!-- Botones Buscar y Actualizar -->
-            <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                <button onclick="cargarReportes()" class="w-full sm:w-auto h-[46px] bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-95">
-                    <i data-lucide="search" class="w-4 h-4"></i> Filtrar
-                </button>
-                <button onclick="cargarReportes()" class="w-full sm:w-auto h-[46px] bg-slate-700 hover:bg-slate-600 text-white px-8 rounded-xl font-bold shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center gap-2 active:scale-95">
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Actualizar
-                </button>
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow flex items-center gap-3">
+                <div class="p-2.5 bg-rose-500/20 text-rose-400 rounded-xl">
+                    <i data-lucide="log-out" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 uppercase font-bold">Salidas Hoy</p>
+                    <p id="met-salidas" class="text-xl font-black text-rose-400">0</p>
+                </div>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow flex items-center gap-3">
+                <div class="p-2.5 bg-purple-500/20 text-purple-400 rounded-xl">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 uppercase font-bold">Empleados Activos</p>
+                    <p id="met-empleados" class="text-xl font-black text-purple-400">0</p>
+                </div>
             </div>
         </div>
 
-        <!-- Tabla de Resultados -->
-        <div class="bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+        <!-- ZONA DE FILTROS AVANZADOS -->
+        <div class="bg-slate-800 p-5 rounded-3xl shadow-xl border border-slate-700 no-print space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                
+                <!-- Filtro Empleado -->
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">Trabajador</label>
+                    <div class="relative">
+                        <i data-lucide="users" class="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <select id="filtro-empleado" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white appearance-none focus:outline-none focus:border-blue-500">
+                            <option value="TODOS">Todos los trabajadores</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Filtro Tipo -->
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">Tipo</label>
+                    <div class="relative">
+                        <i data-lucide="filter" class="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <select id="filtro-tipo" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white appearance-none focus:outline-none focus:border-blue-500">
+                            <option value="TODOS">Todos los tipos</option>
+                            <option value="INGRESO">Solo Ingresos</option>
+                            <option value="SALIDA">Solo Salidas</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Filtro Tiempo -->
+                <div>
+                    <label class="block text-xs text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">Periodo</label>
+                    <div class="relative">
+                        <i data-lucide="calendar" class="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <select id="filtro-tiempo" class="w-full bg-slate-900 border border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white appearance-none focus:outline-none focus:border-blue-500">
+                            <option value="DIA" selected>Solo Hoy</option>
+                            <option value="SEMANA">Esta Semana</option>
+                            <option value="MES">Este Mes</option>
+                            <option value="TODOS">Todo el historial</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-700/60 justify-between items-center">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="cargarReportes()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow transition-all flex items-center gap-2 active:scale-95">
+                        <i data-lucide="search" class="w-4 h-4"></i> Filtrar
+                    </button>
+                    <button onclick="cargarReportes()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 active:scale-95">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Actualizar
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="exportarCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow transition-all flex items-center gap-2 active:scale-95">
+                        <i data-lucide="download" class="w-4 h-4"></i> Exportar Excel (CSV)
+                    </button>
+                    <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 active:scale-95">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE RESULTADOS -->
+        <div class="bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-700">
+            <div class="p-4 bg-slate-950/60 border-b border-slate-700 flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Registros Mostrados: <span id="contador-registros" class="text-white">0</span>
+                </span>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider">
-                            <th class="p-4 font-medium border-b border-slate-700">ID</th>
-                            <th class="p-4 font-medium border-b border-slate-700">Empleado</th>
-                            <th class="p-4 font-medium border-b border-slate-700">Fecha</th>
-                            <th class="p-4 font-medium border-b border-slate-700">Hora</th>
-                            <th class="p-4 font-medium border-b border-slate-700">Tipo</th>
-                            <th class="p-4 font-medium border-b border-slate-700">Método</th>
+                        <tr class="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider">
+                            <th class="p-4 border-b border-slate-700">ID</th>
+                            <th class="p-4 border-b border-slate-700">Empleado</th>
+                            <th class="p-4 border-b border-slate-700">Fecha</th>
+                            <th class="p-4 border-b border-slate-700">Hora</th>
+                            <th class="p-4 border-b border-slate-700 text-center">Tipo</th>
+                            <th class="p-4 border-b border-slate-700 text-center">Método</th>
                         </tr>
                     </thead>
-                    <tbody id="tabla-reportes" class="text-sm divide-y divide-slate-700/50">
+                    <tbody id="tabla-reportes" class="text-xs sm:text-sm divide-y divide-slate-700/50">
                         <tr>
                             <td colspan="6" class="p-8 text-center text-slate-500">
                                 <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500"></i>
@@ -98,12 +189,30 @@
                 </table>
             </div>
         </div>
+
     </div>
 
     <script>
         lucide.createIcons();
 
-        // Cargar lista de empleados para el selector
+        let datosReportesActuales = [];
+
+        // 1. Cargar Métricas
+        async function cargarMetricas() {
+            try {
+                const res = await fetch('/api/reportes/metricas');
+                if (!res.ok) return;
+                const m = await res.json();
+                document.getElementById('met-asistencias').textContent = m.asistencias_hoy || 0;
+                document.getElementById('met-ingresos').textContent = m.ingresos_hoy || 0;
+                document.getElementById('met-salidas').textContent = m.salidas_hoy || 0;
+                document.getElementById('met-empleados').textContent = m.empleados_activos || 0;
+            } catch (err) {
+                console.error("Error al cargar métricas:", err);
+            }
+        }
+
+        // 2. Cargar Lista de Empleados para el Selector
         async function cargarFiltroEmpleados() {
             try {
                 const respuesta = await fetch('/api/empleados');
@@ -121,32 +230,34 @@
             }
         }
 
-        // Cargar tabla con filtros aplicados
+        // 3. Cargar Tabla con Filtros Aplicados
         async function cargarReportes() {
             const tbody = document.getElementById('tabla-reportes');
             const empId = document.getElementById('filtro-empleado').value;
             const periodo = document.getElementById('filtro-tiempo').value;
+            const tipo = document.getElementById('filtro-tipo').value;
             
-            // Construir la URL con las opciones seleccionadas
             const url = new URL('/api/reportes', window.location.origin);
-            if (empId) url.searchParams.append('empleado_id', empId);
-            if (periodo) url.searchParams.append('periodo', periodo);
+            if (empId && empId !== 'TODOS') url.searchParams.append('empleado_id', empId);
+            if (periodo && periodo !== 'TODOS') url.searchParams.append('periodo', periodo);
+            if (tipo && tipo !== 'TODOS') url.searchParams.append('tipo', tipo);
 
-            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500"></i>Filtrando...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500"><i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500"></i>Filtrando asistencias...</td></tr>`;
             lucide.createIcons();
 
             try {
                 const respuesta = await fetch(url);
-                const datos = await respuesta.json();
+                datosReportesActuales = await respuesta.json();
                 
                 tbody.innerHTML = ''; 
+                document.getElementById('contador-registros').textContent = datosReportesActuales.length;
                 
-                if (datos.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay asistencias que coincidan con los filtros.</td></tr>`;
+                if (datosReportesActuales.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay asistencias que coincidan con los filtros seleccionados.</td></tr>`;
                     return;
                 }
 
-                datos.forEach(registro => {
+                datosReportesActuales.forEach(registro => {
                     const fechaObj = new Date(registro.fecha_hora_marcacion);
                     const fecha = fechaObj.toLocaleDateString('es-ES');
                     const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -155,24 +266,29 @@
                         ? 'bg-emerald-950 text-emerald-400 border-emerald-800' 
                         : 'bg-rose-950 text-rose-400 border-rose-800';
 
-                    const metodoClase = registro.metodo === 'ROSTRO' 
-                        ? 'bg-blue-950 text-blue-400 border-blue-800' 
-                        : 'bg-slate-700 text-slate-300 border-slate-600';
+                    let metodoClase = 'bg-blue-950 text-blue-400 border-blue-800';
+                    let metodoNombre = registro.metodo;
+                    if (registro.metodo === 'PIN') {
+                        metodoClase = 'bg-purple-950 text-purple-400 border-purple-800';
+                    } else if (registro.metodo === 'SISTEMA_AUTO') {
+                        metodoClase = 'bg-amber-950 text-amber-400 border-amber-800';
+                        metodoNombre = 'Auto-Cierre 8PM';
+                    }
 
                     const fila = `
                         <tr class="hover:bg-slate-750 transition-colors">
                             <td class="p-4 text-slate-400">#${registro.id}</td>
-                            <td class="p-4 font-semibold text-white">${registro.nombre_completo}</td>
-                            <td class="p-4">${fecha}</td>
-                            <td class="p-4 text-amber-400 font-mono">${hora}</td>
-                            <td class="p-4">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold border ${tipoClase}">
+                            <td class="p-4 font-bold text-white">${registro.nombre_completo}</td>
+                            <td class="p-4 text-slate-300">${fecha}</td>
+                            <td class="p-4 text-amber-400 font-mono font-bold">${hora}</td>
+                            <td class="p-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-black border ${tipoClase}">
                                     ${registro.tipo}
                                 </span>
                             </td>
-                            <td class="p-4">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold border ${metodoClase}">
-                                    ${registro.metodo}
+                            <td class="p-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border ${metodoClase}">
+                                    ${metodoNombre}
                                 </span>
                             </td>
                         </tr>
@@ -183,15 +299,47 @@
             } catch (error) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error al conectar con el servidor.</td></tr>`;
             }
+
+            cargarMetricas();
+        }
+
+        // 4. Exportar a CSV (Compatible con Excel mediante BOM UTF-8)
+        function exportarCSV() {
+            if (!datosReportesActuales || datosReportesActuales.length === 0) {
+                alert("No hay registros para exportar con los filtros actuales.");
+                return;
+            }
+
+            let csvContenido = "\uFEFF"; // BOM para caracteres latinos (tildes, ñ)
+            csvContenido += "ID,Empleado,Fecha,Hora,Tipo,Metodo\n";
+
+            datosReportesActuales.forEach(r => {
+                const fechaObj = new Date(r.fecha_hora_marcacion);
+                const fecha = fechaObj.toLocaleDateString('es-ES');
+                const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
+                // Escapar comillas en nombres
+                const nombreLimpio = `"${(r.nombre_completo || '').replace(/"/g, '""')}"`;
+                csvContenido += `${r.id},${nombreLimpio},${fecha},${hora},${r.tipo},${r.metodo}\n`;
+            });
+
+            const blob = new Blob([csvContenido], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            const fechaArchivo = new Date().toISOString().split('T')[0];
+            link.setAttribute("download", `reporte_asistencias_vt_${fechaArchivo}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Cargar todo al inicio
         window.addEventListener('load', () => {
-            // Forzamos que el valor inicial sea 'DIA' para que la primera carga sea rápida
             document.getElementById('filtro-tiempo').value = 'DIA';
-            
             cargarFiltroEmpleados();
             cargarReportes();
+            cargarMetricas();
         });
     </script>
 </body>

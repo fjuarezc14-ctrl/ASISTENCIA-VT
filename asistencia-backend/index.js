@@ -149,9 +149,65 @@ app.post('/api/asistencia', async (req, res) => {
   }
 });
 
-// Endpoint 4: Ver Reportes (AHORA CON FILTROS INTELIGENTES)
+// Endpoint 1B: Listar empleados para Panel de Admin (con conteo y estado)
+app.get('/api/empleados/admin', async (req, res) => {
+  try {
+    const query = `
+      SELECT e.id, e.nombre_completo, e.activo, e.creado_en,
+             COUNT(r.id)::int AS total_asistencias
+      FROM empleados e
+      LEFT JOIN registros_asistencia r ON e.id = r.empleado_id
+      GROUP BY e.id
+      ORDER BY e.id DESC
+    `;
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error GET empleados/admin:', err);
+    res.status(500).json({ error: 'Error al obtener lista administrativa de empleados' });
+  }
+});
+
+// Endpoint 1C: Activar / Desactivar empleado
+app.patch('/api/empleados/:id/toggle', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      'UPDATE empleados SET activo = NOT activo WHERE id = $1 RETURNING id, nombre_completo, activo',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Empleado no encontrado' });
+    }
+    const empleado = result.rows[0];
+    res.json({ success: true, empleado, mensaje: `Empleado ${empleado.activo ? 'activado' : 'desactivado'} con éxito` });
+  } catch (err) {
+    console.error('Error PATCH empleados toggle:', err);
+    res.status(500).json({ error: 'Error al alternar estado del empleado' });
+  }
+});
+
+// Endpoint 4B: Métricas rápidas para reportes y dashboard
+app.get('/api/reportes/metricas', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        (SELECT COUNT(*) FROM empleados WHERE activo = TRUE)::int AS empleados_activos,
+        (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE)::int AS asistencias_hoy,
+        (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE AND tipo = 'INGRESO')::int AS ingresos_hoy,
+        (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE AND tipo = 'SALIDA')::int AS salidas_hoy
+    `;
+    const result = await db.query(query);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error GET reportes/metricas:', err);
+    res.status(500).json({ error: 'Error al obtener métricas' });
+  }
+});
+
+// Endpoint 4: Ver Reportes (CON FILTROS INTELIGENTES Y TIPO)
 app.get('/api/reportes', async (req, res) => {
-  const { empleado_id, periodo } = req.query;
+  const { empleado_id, periodo, tipo } = req.query;
 
   try {
     let query = `
@@ -168,7 +224,13 @@ app.get('/api/reportes', async (req, res) => {
       query += ` AND r.empleado_id = $${values.length}`;
     }
 
-    // 2. Filtro por Tiempo (Día, Semana, Mes)
+    // 2. Filtro por Tipo (INGRESO / SALIDA)
+    if (tipo && tipo !== 'TODOS') {
+      values.push(tipo.toUpperCase());
+      query += ` AND r.tipo = $${values.length}`;
+    }
+
+    // 3. Filtro por Tiempo (Día, Semana, Mes)
     if (periodo === 'DIA') {
       query += ` AND DATE(r.fecha_hora_marcacion) = CURRENT_DATE`;
     } else if (periodo === 'SEMANA') {
