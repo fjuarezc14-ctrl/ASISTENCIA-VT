@@ -32,16 +32,19 @@
                 </div>
             </div>
 
-            <!-- BOTONES DE ACCESO RÁPIDO -->
+            <!-- BOTONES DE ACCESO RÁPIDO Y LOGOUT -->
             <div class="flex items-center gap-2">
-                <a href="index.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                <a href="index.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
                     <i data-lucide="scan-face" class="w-4 h-4 text-blue-400"></i>
                     Quiosco
                 </a>
-                <a href="reportes.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                <a href="reportes.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
                     <i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-400"></i>
                     Reportes
                 </a>
+                <button onclick="cerrarSesionAdmin()" id="btn-logout" class="flex items-center gap-1.5 bg-red-950/40 hover:bg-red-900/50 text-red-400 border border-red-800/40 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Salir
+                </button>
             </div>
         </header>
 
@@ -139,6 +142,33 @@
 
     </div>
 
+    <!-- MODAL DE AUTENTICACIÓN ADMINISTRATIVA (JWT) -->
+    <div id="modal-login" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-blue-500/30">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-black text-white">Acceso Administrativo</h3>
+                <p class="text-xs text-slate-400">Ingresa las credenciales autorizadas de RRHH</p>
+            </div>
+            <form id="form-login" onsubmit="procesarLoginAdmin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Usuario</label>
+                    <input type="text" id="login-usuario" required placeholder="admin" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <p id="error-login" class="hidden text-xs text-rose-400 text-center font-semibold"></p>
+                <button type="submit" id="btn-submit-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg active:scale-95">
+                    Ingresar al Panel
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICACIÓN -->
     <div id="toast" class="hidden fixed bottom-6 right-6 max-w-sm p-4 rounded-2xl shadow-2xl border backdrop-blur-md z-50 flex items-center gap-3">
         <span id="toast-icono"></span>
@@ -157,6 +187,86 @@
         const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
         let iaLista = false;
         let listaEmpleadosAdmin = [];
+
+        // ==========================================================
+        // GESTIÓN DE SESIÓN JWT
+        // ==========================================================
+        function obtenerTokenAdmin() {
+            return localStorage.getItem('vt_admin_token');
+        }
+
+        function mostrarModalLogin() {
+            document.getElementById('modal-login').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function ocultarModalLogin() {
+            document.getElementById('modal-login').classList.add('hidden');
+        }
+
+        function cerrarSesionAdmin() {
+            localStorage.removeItem('vt_admin_token');
+            mostrarToast('success', 'Sesión cerrada exitosamente');
+            mostrarModalLogin();
+        }
+
+        async function procesarLoginAdmin(e) {
+            e.preventDefault();
+            const usuario = document.getElementById('login-usuario').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorElem = document.getElementById('error-login');
+            const btn = document.getElementById('btn-submit-login');
+
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+            errorElem.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usuario, password: password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    localStorage.setItem('vt_admin_token', data.token);
+                    ocultarModalLogin();
+                    document.getElementById('form-login').reset();
+                    mostrarToast('success', 'Bienvenido al panel administrativo');
+                    cargarListaEmpleados();
+                    inicializarAdmin();
+                } else {
+                    errorElem.textContent = data.error || 'Credenciales incorrectas';
+                    errorElem.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorElem.textContent = 'Error al conectar con el servidor';
+                errorElem.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Ingresar al Panel';
+            }
+        }
+
+        // Wrapper de fetch con autenticación JWT
+        async function authFetch(url, options = {}) {
+            const token = obtenerTokenAdmin();
+            if (!token) {
+                mostrarModalLogin();
+                throw new Error('No autenticado');
+            }
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('vt_admin_token');
+                mostrarModalLogin();
+                throw new Error('Sesión no autorizada o expirada');
+            }
+            return res;
+        }
 
         // 1. Alternar Pestañas
         function cambiarSeccion(seccion) {
@@ -182,6 +292,8 @@
 
         // 2. Cargar IA y Cámara
         async function inicializarAdmin() {
+            if (!obtenerTokenAdmin()) return;
+
             try {
                 textoEstado.textContent = "Cargando modelos de IA...";
                 await Promise.all([
@@ -207,11 +319,9 @@
                 textoEstado.textContent = "Error al iniciar cámara o IA.";
                 textoEstado.classList.add('text-red-400');
             }
-
-            cargarListaEmpleados();
         }
 
-        // 3. Procesar Registro de Empleado
+        // 3. Procesar Registro de Empleado (PROTEGIDO)
         document.getElementById('form-registro').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -239,7 +349,7 @@
                 const descriptorArray = Array.from(deteccion.descriptor);
                 textoBtn.textContent = "Guardando en base de datos...";
 
-                const respuesta = await fetch('/api/empleados', {
+                const respuesta = await authFetch('/api/empleados', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -267,10 +377,10 @@
             }
         });
 
-        // 4. Cargar Lista Administrativa de Empleados
+        // 4. Cargar Lista Administrativa de Empleados (PROTEGIDO)
         async function cargarListaEmpleados() {
             try {
-                const respuesta = await fetch('/api/empleados/admin');
+                const respuesta = await authFetch('/api/empleados/admin');
                 if (!respuesta.ok) return;
                 listaEmpleadosAdmin = await respuesta.json();
                 document.getElementById('contador-empleados').textContent = listaEmpleadosAdmin.length;
@@ -314,10 +424,10 @@
             lucide.createIcons();
         }
 
-        // 5. Alternar Estado Activo / Inactivo
+        // 5. Alternar Estado Activo / Inactivo (PROTEGIDO)
         async function toggleEstadoEmpleado(id) {
             try {
-                const respuesta = await fetch(`/api/empleados/${id}/toggle`, { method: 'PATCH' });
+                const respuesta = await authFetch(`/api/empleados/${id}/toggle`, { method: 'PATCH' });
                 const resultado = await respuesta.json();
                 if (respuesta.ok) {
                     mostrarToast('success', resultado.mensaje);
@@ -359,7 +469,14 @@
             setTimeout(() => toast.classList.add('hidden'), 4000);
         }
 
-        window.addEventListener('load', inicializarAdmin);
+        window.addEventListener('load', () => {
+            if (!obtenerTokenAdmin()) {
+                mostrarModalLogin();
+            } else {
+                cargarListaEmpleados();
+                inicializarAdmin();
+            }
+        });
     </script>
 </body>
 </html>

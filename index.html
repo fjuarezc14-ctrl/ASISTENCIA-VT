@@ -387,14 +387,42 @@
         }
 
         async function procesarMarcacionPIN() {
-            const empleado = listaEmpleados.find(emp => emp.codigo_pin === pinIngresado);
-            if (!empleado) {
-                mostrarNotificacion('error', 'PIN Incorrecto', 'El código de 4 dígitos no coincide.');
-                limpiarPIN();
-                return;
-            }
-            await registrarAsistencia(empleado.id, 'PIN');
+            marcacionEnProceso = true;
+            const pinAValidar = pinIngresado;
             limpiarPIN();
+
+            try {
+                const respuesta = await fetch(`${API_BASE}/asistencia/pin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        pin: pinAValidar, 
+                        tipo: tipoMarcacionActual 
+                    })
+                });
+
+                const resultado = await respuesta.json();
+                if (respuesta.ok) {
+                    mostrarNotificacion(
+                        'success', 
+                        `¡${resultado.tipo} Registrado!`, 
+                        `${resultado.nombre} &bull; ${resultado.mensaje || 'Asistencia confirmada'}`
+                    );
+                    if (tipoMarcacionActual === 'INGRESO') {
+                        setTimeout(() => setTipoMarcacion('SALIDA'), 4000);
+                    } else {
+                        setTimeout(() => setTipoMarcacion('INGRESO'), 4000);
+                    }
+                } else {
+                    mostrarNotificacion('error', 'No se pudo registrar', resultado.error || 'PIN incorrecto');
+                }
+            } catch (error) {
+                mostrarNotificacion('error', 'Error de Conexión', 'No se pudo contactar al servidor.');
+            } finally {
+                setTimeout(() => {
+                    marcacionEnProceso = false;
+                }, 3000);
+            }
         }
 
         function borrarPIN() { 

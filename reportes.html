@@ -15,7 +15,7 @@
     <style>
         @media print {
             /* Ocultar elementos no imprimibles */
-            header, .no-print, #toast, select, button { display: none !important; }
+            header, .no-print, #toast, #modal-login, select, button { display: none !important; }
 
             /* Configuración de página */
             @page {
@@ -142,16 +142,19 @@
                 </div>
             </div>
 
-            <!-- BOTONES DE ACCESO RÁPIDO -->
+            <!-- BOTONES DE ACCESO RÁPIDO Y LOGOUT -->
             <div class="flex items-center gap-2 no-print">
-                <a href="index.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                <a href="index.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
                     <i data-lucide="scan-face" class="w-4 h-4 text-blue-400"></i>
                     Quiosco
                 </a>
-                <a href="admin.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                <a href="admin.html" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
                     <i data-lucide="user-plus" class="w-4 h-4 text-blue-400"></i>
                     Empleados
                 </a>
+                <button onclick="cerrarSesionReportes()" id="btn-logout" class="flex items-center gap-1.5 bg-red-950/40 hover:bg-red-900/50 text-red-400 border border-red-800/40 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow active:scale-95">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Salir
+                </button>
             </div>
         </header>
 
@@ -308,15 +311,121 @@
 
     </div>
 
+    <!-- MODAL DE AUTENTICACIÓN ADMINISTRATIVA (JWT) -->
+    <div id="modal-login" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-5">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-emerald-600/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-emerald-500/30">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-black text-white">Acceso a Reportes</h3>
+                <p class="text-xs text-slate-400">Ingresa las credenciales autorizadas de RRHH</p>
+            </div>
+            <form id="form-login" onsubmit="procesarLoginReportes(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Usuario</label>
+                    <input type="text" id="login-usuario" required placeholder="admin" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <p id="error-login" class="hidden text-xs text-rose-400 text-center font-semibold"></p>
+                <button type="submit" id="btn-submit-login" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg active:scale-95">
+                    Consultar Reportes
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script>
         lucide.createIcons();
 
         let datosReportesActuales = [];
 
-        // 1. Cargar Métricas
+        // ==========================================================
+        // GESTIÓN DE SESIÓN JWT
+        // ==========================================================
+        function obtenerTokenAdmin() {
+            return localStorage.getItem('vt_admin_token');
+        }
+
+        function mostrarModalLogin() {
+            document.getElementById('modal-login').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function ocultarModalLogin() {
+            document.getElementById('modal-login').classList.add('hidden');
+        }
+
+        function cerrarSesionReportes() {
+            localStorage.removeItem('vt_admin_token');
+            mostrarModalLogin();
+        }
+
+        async function procesarLoginReportes(e) {
+            e.preventDefault();
+            const usuario = document.getElementById('login-usuario').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorElem = document.getElementById('error-login');
+            const btn = document.getElementById('btn-submit-login');
+
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+            errorElem.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usuario, password: password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    localStorage.setItem('vt_admin_token', data.token);
+                    ocultarModalLogin();
+                    document.getElementById('form-login').reset();
+                    cargarFiltroEmpleados();
+                    cargarReportes();
+                    cargarMetricas();
+                } else {
+                    errorElem.textContent = data.error || 'Credenciales incorrectas';
+                    errorElem.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorElem.textContent = 'Error al conectar con el servidor';
+                errorElem.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Consultar Reportes';
+            }
+        }
+
+        // Wrapper de fetch autenticado
+        async function authFetch(url, options = {}) {
+            const token = obtenerTokenAdmin();
+            if (!token) {
+                mostrarModalLogin();
+                throw new Error('No autenticado');
+            }
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('vt_admin_token');
+                mostrarModalLogin();
+                throw new Error('Sesión no autorizada');
+            }
+            return res;
+        }
+
+        // 1. Cargar Métricas (PROTEGIDO)
         async function cargarMetricas() {
             try {
-                const res = await fetch('/api/reportes/metricas');
+                const res = await authFetch('/api/reportes/metricas');
                 if (!res.ok) return;
                 const m = await res.json();
                 document.getElementById('met-asistencias').textContent = m.asistencias_hoy || 0;
@@ -335,6 +444,8 @@
                 const empleados = await respuesta.json();
                 const select = document.getElementById('filtro-empleado');
                 
+                // Limpiar opciones anteriores manteniendo la primera
+                select.innerHTML = '<option value="TODOS">Todos los trabajadores</option>';
                 empleados.forEach(emp => {
                     const opcion = document.createElement('option');
                     opcion.value = emp.id;
@@ -346,7 +457,7 @@
             }
         }
 
-        // 3. Cargar Tabla con Filtros Aplicados
+        // 3. Cargar Tabla con Filtros Aplicados (PROTEGIDO)
         async function cargarReportes() {
             const tbody = document.getElementById('tabla-reportes');
             const empId = document.getElementById('filtro-empleado').value;
@@ -362,7 +473,7 @@
             lucide.createIcons();
 
             try {
-                const respuesta = await fetch(url);
+                const respuesta = await authFetch(url);
                 datosReportesActuales = await respuesta.json();
                 
                 tbody.innerHTML = ''; 
@@ -413,7 +524,7 @@
                 });
 
             } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error al conectar con el servidor.</td></tr>`;
+                console.error("Error al cargar reportes:", error);
             }
 
             cargarMetricas();
@@ -456,7 +567,6 @@
                 const fecha = fechaObj.toLocaleDateString('es-ES');
                 const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
-                // Escapar comillas en nombres
                 const nombreLimpio = `"${(r.nombre_completo || '').replace(/"/g, '""')}"`;
                 csvContenido += `${r.id},${nombreLimpio},${fecha},${hora},${r.tipo},${r.metodo}\n`;
             });
@@ -472,12 +582,16 @@
             document.body.removeChild(link);
         }
 
-        // Cargar todo al inicio
+        // Cargar al inicio
         window.addEventListener('load', () => {
             document.getElementById('filtro-tiempo').value = 'DIA';
-            cargarFiltroEmpleados();
-            cargarReportes();
-            cargarMetricas();
+            if (!obtenerTokenAdmin()) {
+                mostrarModalLogin();
+            } else {
+                cargarFiltroEmpleados();
+                cargarReportes();
+                cargarMetricas();
+            }
         });
     </script>
 </body>

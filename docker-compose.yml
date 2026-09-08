@@ -40,6 +40,9 @@ services:
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-Valeria29}
       - DB_NAME=${DB_NAME:-vt_asistencia}
+      - JWT_SECRET=${JWT_SECRET:-valetec_jwt_secret_asistencia_2026}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Valetec2026!}
     depends_on:
       asistencia-db:
         condition: service_healthy
