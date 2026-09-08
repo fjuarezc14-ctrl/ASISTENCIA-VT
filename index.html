@@ -134,12 +134,29 @@
         const API_BASE = '/api';
 
         // =====================================
-        // RELOJ PERUANO EN TIEMPO REAL
+        // RELOJ PERUANO EN TIEMPO REAL & RESET MADRUGADA (04:00 AM)
         // =====================================
+        let ultimoDiaReset = new Date().toDateString();
+
+        function verificarResetMadrugada() {
+            const ahora = new Date();
+            const diaHoy = ahora.toDateString();
+            const hora = ahora.getHours();
+            
+            // Si son las 04:00 AM o ha cambiado de fecha y aún no se ha reseteado hoy:
+            if (hora >= 4 && diaHoy !== ultimoDiaReset) {
+                ultimoDiaReset = diaHoy;
+                console.log("🌅 Reset de madrugada ejecutado (04:00 AM): conmutando a INGRESO para el nuevo día.");
+                setTipoMarcacion('INGRESO');
+                descargarEmpleados();
+            }
+        }
+
         function actualizarReloj() {
             const ahora = new Date();
             document.getElementById('reloj').textContent = ahora.toLocaleTimeString('es-ES', { hour12: false });
             document.getElementById('fecha').textContent = ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            verificarResetMadrugada();
         }
         setInterval(actualizarReloj, 1000);
         actualizarReloj();
@@ -459,13 +476,11 @@
                         `¡${resultado.tipo} Registrado!`, 
                         `${resultado.nombre} &bull; ${resultado.mensaje || 'Asistencia confirmada'}`
                     );
-                    if (tipoMarcacionActual === 'INGRESO') {
-                        setTimeout(() => setTipoMarcacion('SALIDA'), 4000);
-                    } else {
-                        setTimeout(() => setTipoMarcacion('INGRESO'), 4000);
-                    }
                 } else {
-                    mostrarNotificacion('error', 'No se pudo registrar', resultado.error || 'PIN incorrecto');
+                    mostrarNotificacion('error', 'Atención', resultado.error || 'PIN incorrecto');
+                    if (resultado.accionSugerida) {
+                        setTipoMarcacion(resultado.accionSugerida);
+                    }
                 }
             } catch (error) {
                 mostrarNotificacion('error', 'Error de Conexión', 'No se pudo contactar al servidor.');
@@ -536,14 +551,11 @@
                         `¡${resultado.tipo} Registrado!`, 
                         `${resultado.nombre} &bull; ${resultado.mensaje || 'Asistencia confirmada'}`
                     );
-                    // Si marcó ingreso, conmutamos automáticamente a sugerir salida para el próximo
-                    if (tipoMarcacionActual === 'INGRESO') {
-                        setTimeout(() => setTipoMarcacion('SALIDA'), 4000);
-                    } else {
-                        setTimeout(() => setTipoMarcacion('INGRESO'), 4000);
-                    }
                 } else {
-                    mostrarNotificacion('error', 'No se pudo registrar', resultado.error || 'Verifica tu estado');
+                    mostrarNotificacion('error', 'Atención', resultado.error || 'Verifica tu estado');
+                    if (resultado.accionSugerida) {
+                        setTipoMarcacion(resultado.accionSugerida);
+                    }
                 }
             } catch (error) {
                 mostrarNotificacion('error', 'Error de Conexión', 'No se pudo contactar al servidor de asistencia.');

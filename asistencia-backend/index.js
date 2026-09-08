@@ -201,50 +201,71 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     let tipoAsistencia = tipoSolicitado ? tipoSolicitado.toUpperCase() : null;
     let mensajeExtra = '';
 
-    if (lastMarkResult.rows.length > 0) {
+    const ahora = new Date();
+    // Ajuste al reloj de Perú (UTC -5)
+    const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+
+    if (lastMarkResult.rows.length === 0) {
+        // Primer registro histórico del empleado: siempre debe ser INGRESO
+        if (tipoAsistencia === 'SALIDA') {
+            return {
+                ok: false,
+                status: 400,
+                accionSugerida: 'INGRESO',
+                error: 'No registra un INGRESO previo. Por favor, marque primero su INGRESO.'
+            };
+        }
+        tipoAsistencia = 'INGRESO';
+    } else {
         const ultimaMarcacion = lastMarkResult.rows[0];
         const fechaUltima = new Date(ultimaMarcacion.fecha_hora_marcacion);
-        const ahora = new Date();
-        
-        // Ajuste al reloj de Perú (UTC -5)
         const fechaUltimaPeru = new Date(fechaUltima.getTime() - (5 * 60 * 60 * 1000));
-        const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+        
         const esMismoDia = fechaUltimaPeru.getUTCFullYear() === ahoraPeru.getUTCFullYear() && 
                            fechaUltimaPeru.getUTCMonth() === ahoraPeru.getUTCMonth() && 
                            fechaUltimaPeru.getUTCDate() === ahoraPeru.getUTCDate();
 
-        // 1. Bloqueo por estado repetido en el mismo día
+        // 1. REGLA: En un nuevo día, la primera marcación NUNCA puede ser SALIDA
+        if (!esMismoDia && tipoAsistencia === 'SALIDA') {
+            return {
+                ok: false,
+                status: 400,
+                accionSugerida: 'INGRESO',
+                error: 'No registra un INGRESO el día de hoy. Por favor, marque primero su INGRESO.'
+            };
+        }
+
+        // 2. REGLA: Bloqueo por estado repetido en el mismo día
         if (esMismoDia && tipoAsistencia === ultimaMarcacion.tipo) {
             const accionCorrecta = ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
             return {
                 ok: false,
                 status: 400,
-                error: `Usted ya marcó ${ultimaMarcacion.tipo}. Por favor, marque ${accionCorrecta}.`
+                accionSugerida: accionCorrecta,
+                error: `Usted ya marcó ${ultimaMarcacion.tipo} hoy. Por favor, marque ${accionCorrecta}.`
             };
         }
 
-        // Fallback si no especificó tipo
+        // 3. Fallback si no especificó tipo
         if (!tipoAsistencia) {
             tipoAsistencia = esMismoDia && ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
         }
 
-        // 2. Auto-Cierre de turno del día anterior a las 8:00 PM
+        // 4. AUTO-CIERRE de turno anterior por omisión (ej. si olvidó marcar salida ayer o salió a ventas)
         if (!esMismoDia && ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
             const fechaSalidaAutomatica = new Date(fechaUltima);
-            fechaSalidaAutomatica.setHours(20, 0, 0, 0);
+            fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 8:00 PM del día del turno abierto
             
             const autoSalidaQuery = `
                 INSERT INTO registros_asistencia (empleado_id, metodo, tipo, fecha_hora_marcacion) 
                 VALUES ($1, $2, $3, $4)
             `;
             await db.query(autoSalidaQuery, [empleadoId, 'SISTEMA_AUTO', 'SALIDA', fechaSalidaAutomatica]);
-            mensajeExtra = ' (Aviso: El sistema cerró tu turno de ayer por omisión)';
+            mensajeExtra = ' (Aviso: Se cerró automáticamente tu turno anterior por omisión)';
         }
-    } else if (!tipoAsistencia) {
-        tipoAsistencia = 'INGRESO';
     }
 
-    // 3. Insertar marcación
+    // 5. Insertar marcación
     const insertQuery = `
         INSERT INTO registros_asistencia (empleado_id, metodo, tipo) 
         VALUES ($1, $2, $3) 
@@ -311,7 +332,10 @@ app.post('/api/asistencia/pin', async (req, res) => {
         // Registrar asistencia validada
         const registro = await procesarRegistroAsistencia(empleadoAutenticado.id, 'PIN', tipo);
         if (!registro.ok) {
-            return res.status(registro.status).json({ error: registro.error });
+            return res.status(registro.status).json({ 
+                error: registro.error, 
+                accionSugerida: registro.accionSugerida 
+            });
         }
 
         return res.status(201).json({
@@ -344,7 +368,10 @@ app.post('/api/asistencia', async (req, res) => {
 
         const registro = await procesarRegistroAsistencia(empleado_id, metodo || 'ROSTRO', tipo);
         if (!registro.ok) {
-            return res.status(registro.status).json({ error: registro.error });
+            return res.status(registro.status).json({ 
+                error: registro.error, 
+                accionSugerida: registro.accionSugerida 
+            });
         }
 
         res.status(201).json({
