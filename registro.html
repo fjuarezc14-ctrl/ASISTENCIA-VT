@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALETEC - Gestión HR & Control Asistencia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans h-screen overflow-hidden flex relative">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex">
+        <div class="p-6 border-b border-gray-100">
+            <h1 class="text-2xl font-black text-gray-900 flex items-center gap-2">
+                <span class="text-blue-600">VT</span> VALETEC
+            </h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" id="menu-lateral">
+            <p class="text-xs font-bold text-gray-400 mb-4 px-2 uppercase tracking-wider">Gestión HR</p>
+            
+            <button onclick="cambiarVista('inicio', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-semibold transition-colors">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Inicio / Panel
+            </button>
+            <button onclick="cambiarVista('colaboradores', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="users" class="w-5 h-5"></i> Colaboradores
+            </button>
+            <!-- NUEVO MÓDULO: DOCUMENTOS -->
+            <button onclick="cambiarVista('documentos', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="folder-open" class="w-5 h-5"></i> Documentos
+            </button>
+            <button onclick="cambiarVista('asistencias', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="calendar-clock" class="w-5 h-5"></i> Asistencias
+            </button>
+            <button onclick="cambiarVista('incidencias', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="user-x" class="w-5 h-5"></i> Faltas y Tardanzas
+            </button>
+            <button onclick="cambiarVista('permisos', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="plane" class="w-5 h-5"></i> Vacaciones y Permisos
+            </button>
+            
+            <div class="pt-4 mt-4 border-t border-gray-100"></div>
+            
+            <button onclick="cambiarVista('reportes', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Exportar Reportes
+            </button>
+        </nav>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+        <header class="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10">
+            <div>
+                <h2 id="titulo-header" class="text-2xl font-bold text-gray-800">Panel General</h2>
+                <p id="subtitulo-header" class="text-sm text-gray-500 mt-1">Resumen del estado de la plantilla y operaciones</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-medium text-gray-500">06 Sep 2026</span>
+                <div class="w-10 h-10 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold shadow">
+                    AD
+                </div>
+            </div>
+        </header>
+
+        <div class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+            
+            <!-- VISTA 1: INICIO (DASHBOARD) -->
+            <div id="vista-inicio" class="vista-activa">
+                <!-- Se mantiene el Dashboard intacto -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-blue-500">
+                        <div class="bg-blue-50 p-3 rounded-lg text-blue-600"><i data-lucide="users" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-500">Total Plantilla</p>
+                            <p class="text-2xl font-bold text-gray-900" id="total-plantilla-count">150</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-emerald-500">
+                        <div class="bg-emerald-50 p-3 rounded-lg text-emerald-600"><i data-lucide="user-check" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-500">Presentes Hoy</p>
+                            <p class="text-2xl font-bold text-gray-900">142</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-amber-500">
+                        <div class="bg-amber-50 p-3 rounded-lg text-amber-600"><i data-lucide="clock" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-500">Tardanzas Hoy</p>
+                            <p class="text-2xl font-bold text-gray-900">1</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-purple-500">
+                        <div class="bg-purple-50 p-3 rounded-lg text-purple-600"><i data-lucide="plane" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-500">En Permiso/Vac</p>
+                            <p class="text-2xl font-bold text-gray-900">5</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-gray-400"></i> Distribución del Personal</h3>
+                        <div class="space-y-5">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Operaciones Mina</span><span class="font-bold text-gray-900">60</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full" style="width: 40%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Planta Concentradora</span><span class="font-bold text-gray-900">45</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-indigo-500 h-2.5 rounded-full" style="width: 30%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Mantenimiento</span><span class="font-bold text-gray-900">25</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-emerald-500 h-2.5 rounded-full" style="width: 16%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-gray-400"></i> Actividad Reciente</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                <div class="text-sm"><span class="font-medium">Juan Pérez</span> marcó ingreso en <span class="font-medium text-blue-600">Garita Principal</span></div>
+                                <div class="ml-auto text-xs text-gray-400">Hace 2 min</div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                                <div class="text-sm"><span class="font-medium">María López</span> marcó ingreso con retraso</div>
+                                <div class="ml-auto text-xs text-gray-400">Hace 15 min</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 2: COLABORADORES -->
+            <div id="vista-colaboradores" class="hidden">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-lg">Directorio y Accesos</h4>
+                            <p class="text-xs text-gray-500">Configuración de credenciales y horarios</p>
+                        </div>
+                        <button onclick="abrirModalColaborador()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Registrar Nuevo Empleado
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-semibold">Empleado / PIN</th>
+                                    <th class="px-6 py-4 font-semibold">Área / Departamento</th>
+                                    <th class="px-6 py-4 font-semibold">Días Laborables</th>
+                                    <th class="px-6 py-4 font-semibold">Horario</th>
+                                    <th class="px-6 py-4 font-semibold">Biometría Facial</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-colaboradores-body" class="divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4">
+                                        <div class="font-medium text-gray-900">Juan Pérez</div>
+                                        <div class="text-xs text-blue-600 font-mono font-semibold">PIN: **** (Activo)</div>
+                                    </td>
+                                    <td class="px-6 py-4">Operaciones Mina</td>
+                                    <td class="px-6 py-4">Lun, Mar, Mié, Jue, Vie</td>
+                                    <td class="px-6 py-4">
+                                        <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">08:00 AM</span> - 
+                                        <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">17:00 PM</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs font-semibold">
+                                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Registrado
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA NUEVA: DOCUMENTOS -->
+            <div id="vista-documentos" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Lista de Empleados para asignar documentos -->
+                    <div class="lg:col-span-1 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                        <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-blue-600"></i> Seleccionar Empleado</h4>
+                        <div class="relative mb-4">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+                            <input type="text" placeholder="Buscar..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="space-y-2 max-h-96 overflow-y-auto">
+                            <button class="w-full text-left p-3 rounded-lg bg-blue-50 border border-blue-200 transition">
+                                <p class="font-bold text-blue-800 text-sm">Juan Pérez</p>
+                                <p class="text-xs text-blue-600">Operaciones Mina</p>
+                            </button>
+                            <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition text-gray-700">
+                                <p class="font-bold text-sm">María López</p>
+                                <p class="text-xs text-gray-500">Mantenimiento</p>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Carga de Documentos -->
+                    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                            <div>
+                                <h4 class="font-bold text-xl text-gray-900">Expediente: Juan Pérez</h4>
+                                <p class="text-sm text-gray-500">Gestiona los documentos personales del colaborador</p>
+                            </div>
+                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">Expediente 66% Completo</span>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- CV -->
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                                <div class="flex items-center gap-4">
+                                    <div class="bg-blue-100 p-3 rounded-lg text-blue-600"><i data-lucide="file-text" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="font-bold text-gray-800">Currículum Vitae (CV)</p>
+                                        <p class="text-xs text-gray-500">Última actualización: 12 Ago 2026</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> Ver</button>
+                                    <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Actualizar</button>
+                                </div>
+                            </div>
+                            
+                            <!-- DNI -->
+                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                                <div class="flex items-center gap-4">
+                                    <div class="bg-indigo-100 p-3 rounded-lg text-indigo-600"><i data-lucide="credit-card" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="font-bold text-gray-800">DNI Escaneado</p>
+                                        <p class="text-xs text-gray-500">Última actualización: 12 Ago 2026</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> Ver</button>
+                                    <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Actualizar</button>
+                                </div>
+                            </div>
+
+                            <!-- Recibo -->
+                            <div class="flex items-center justify-between p-4 border border-amber-200 bg-amber-50 rounded-xl">
+                                <div class="flex items-center gap-4">
+                                    <div class="bg-amber-100 p-3 rounded-lg text-amber-600"><i data-lucide="receipt" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="font-bold text-gray-800">Recibo de Agua o Luz</p>
+                                        <p class="text-xs text-amber-600 font-semibold">Pendiente de subida</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"><i data-lucide="upload" class="w-4 h-4"></i> Cargar Documento</button>
+                                    <input type="file" id="file-upload" class="hidden">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 3: ASISTENCIAS -->
+            <div id="vista-asistencias" class="hidden">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
+                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Buscar Trabajador</label>
+                    <div class="relative w-full md:w-1/2">
+                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+                        <input type="text" id="buscador-asistencia" placeholder="Escribe el nombre o ID..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-semibold">ID</th>
+                                    <th class="px-6 py-4 font-semibold">Empleado</th>
+                                    <th class="px-6 py-4 font-semibold">Fecha / Hora</th>
+                                    <th class="px-6 py-4 font-semibold">Estado</th>
+                                    <th class="px-6 py-4 font-semibold">Método</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-asistencias-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 4: FALTAS Y TARDANZAS -->
+            <div id="vista-incidencias" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Faltas -->
+                    <div class="bg-rose-50 border border-rose-100 p-6 rounded-xl flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-rose-800 font-bold text-lg">Inasistencias de Hoy</h3>
+                            <span class="bg-rose-200 text-rose-800 font-black text-xl px-3 py-1 rounded-lg">3</span>
+                        </div>
+                        <ul class="space-y-3">
+                            <li class="flex items-center gap-3 bg-white/60 p-2 rounded-lg border border-rose-100">
+                                <div class="w-8 h-8 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center font-bold text-xs">CM</div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">Carlos Mendoza</p>
+                                    <p class="text-xs text-rose-600">Turno: 08:00 AM</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <!-- Tardanzas -->
+                    <div class="bg-amber-50 border border-amber-100 p-6 rounded-xl flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-amber-800 font-bold text-lg">Tardanzas Registradas</h3>
+                            </div>
+                            <span class="bg-amber-200 text-amber-800 font-black text-xl px-3 py-1 rounded-lg">1</span>
+                        </div>
+                        <ul class="space-y-3">
+                            <li class="flex items-center gap-3 bg-white/60 p-2 rounded-lg border border-amber-100">
+                                <div class="w-8 h-8 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center font-bold text-xs">ML</div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-gray-900">María López</p>
+                                    <p class="text-xs text-gray-500">Ingreso: 08:12 AM</p>
+                                </div>
+                                <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded">+12 min</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 5: VACACIONES Y PERMISOS -->
+            <div id="vista-permisos" class="hidden">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="font-bold text-gray-800 text-lg">Solicitudes Pendientes</h4>
+                        <button onclick="abrirModalSolicitud()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Nueva Solicitud
+                        </button>
+                    </div>
+                    <div id="contenedor-solicitudes" class="space-y-4">
+                        <!-- Aquí se agregarán las solicitudes dinámicamente -->
+                        <div class="p-4 border border-gray-200 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-blue-300 transition">
+                            <div>
+                                <p class="font-semibold text-gray-900">Ana Lucía Torres <span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full ml-2">Vacaciones</span></p>
+                                <p class="text-sm text-gray-500 mt-1">Del 15 de Oct al 30 de Oct (15 días)</p>
+                            </div>
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-lg text-sm font-medium transition">Rechazar</button>
+                                <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-medium transition">Aprobar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 6: REPORTES MEJORADOS -->
+            <div id="vista-reportes" class="hidden">
+                <div class="bg-white p-8 rounded-xl border border-gray-200 shadow-sm max-w-4xl mx-auto">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><i data-lucide="bar-chart-3" class="w-6 h-6"></i></div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">Generador Avanzado de Reportes</h3>
+                            <p class="text-sm text-gray-500">Filtra por colaborador, fechas y tipo de registro para auditoría.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-xl border border-gray-100 mb-6">
+                        <!-- Filtro Trabajador -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Seleccionar Colaborador</label>
+                            <select class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="todos">Todos los Colaboradores (Reporte General)</option>
+                                <option value="1">Juan Pérez (Operaciones Mina)</option>
+                                <option value="2">María López (Mantenimiento)</option>
+                                <option value="3">Carlos Mendoza (Planta Concentradora)</option>
+                            </select>
+                        </div>
+                        <!-- Tipo de Reporte -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Información a Extraer</label>
+                            <select class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option>Asistencia General (Ingresos y Salidas)</option>
+                                <option>Solo Faltas y Tardanzas</option>
+                                <option>Horas Extras Generadas</option>
+                            </select>
+                        </div>
+                        <!-- Rango de Fechas -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Rango de Fechas</label>
+                            <div class="flex items-center gap-4">
+                                <input type="date" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <span class="font-medium text-gray-400">a</span>
+                                <input type="date" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg">
+                            <i data-lucide="search" class="w-5 h-5"></i> Previsualizar Datos
+                        </button>
+                        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-green-500/30">
+                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> Exportar a Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL: REGISTRAR NUEVO EMPLEADO -->
+    <div id="modal-colaborador" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden my-8">
+            <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-blue-600 rounded-lg"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
+                    <div>
+                        <h3 class="font-bold text-lg">Registrar Nuevo Empleado</h3>
+                        <p class="text-xs text-slate-400">Escanea el rostro y asigna un PIN de 4 dígitos</p>
+                    </div>
+                </div>
+                <button onclick="cerrarModalColaborador()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <form onsubmit="guardarColaborador(event)" class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo</label>
+                        <input type="text" id="reg-nombre" placeholder="Ej. Juan Pérez" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <!-- PIN EXACTO DE 4 DÍGITOS -->
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Código PIN (Exacto 4 dígitos)</label>
+                        <input type="password" id="reg-pin" maxlength="4" minlength="4" pattern="\d{4}" title="Debe contener exactamente 4 números" placeholder="****" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm tracking-widest font-mono text-center">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Área / Departamento</label>
+                    <select id="reg-area" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+                        <option value="Operaciones Mina">Operaciones Mina</option>
+                        <option value="Planta Concentradora">Planta Concentradora</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                    </select>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-blue-600"></i> Configuración de Horario</h4>
+                    <div class="flex gap-2 mb-4 flex-wrap">
+                        <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer"><input type="checkbox" name="dia" value="Lun" checked> Lun</label>
+                        <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer"><input type="checkbox" name="dia" value="Mar" checked> Mar</label>
+                        <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer"><input type="checkbox" name="dia" value="Mié" checked> Mié</label>
+                        <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer"><input type="checkbox" name="dia" value="Jue" checked> Jue</label>
+                        <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer"><input type="checkbox" name="dia" value="Vie" checked> Vie</label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Ingreso</label>
+                            <input type="time" id="reg-hora-ingreso" value="08:00" required class="w-full p-2.5 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Salida</label>
+                            <input type="time" id="reg-hora-salida" value="17:00" required class="w-full p-2.5 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Escáner Facial</label>
+                    <div class="relative w-full h-44 bg-slate-900 rounded-xl overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-slate-700 text-white">
+                        <i data-lucide="scan-face" class="w-12 h-12 text-blue-500 mb-2 animate-pulse"></i>
+                        <p class="text-xs text-slate-400">Cámara lista para registro facial</p>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-gray-100 flex gap-3">
+                    <button type="button" onclick="cerrarModalColaborador()" class="w-1/3 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition text-sm">Cancelar</button>
+                    <button type="submit" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition text-sm">
+                        <i data-lucide="scan" class="w-4 h-4"></i> Guardar Empleado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA SOLICITUD DE PERMISOS -->
+    <div id="modal-solicitud" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h3 class="font-bold text-lg text-gray-900">Registrar Nueva Solicitud</h3>
+                <button onclick="cerrarModalSolicitud()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="procesarFormularioPermiso(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
+                    <select id="empleado-solicitud" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-sm bg-white">
+                        <option value="Juan Pérez">Juan Pérez</option>
+                        <option value="María López">María López</option>
+                        <option value="Carlos Mendoza">Carlos Mendoza</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Solicitud</label>
+                    <select id="tipo-solicitud" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-sm bg-white">
+                        <option value="Vacaciones">Vacaciones</option>
+                        <option value="Descanso Médico">Descanso Médico</option>
+                        <option value="Permiso Personal">Permiso Personal</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+                        <input type="date" id="fecha-inicio" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+                        <input type="date" id="fecha-fin" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-sm">
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-gray-100 flex gap-3">
+                    <button type="button" onclick="cerrarModalSolicitud()" class="flex-1 bg-gray-100 text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 transition text-white font-medium py-2.5 rounded-lg shadow-sm">Generar Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // NAVEGACIÓN Y VISTAS
+        const vistas = ['inicio', 'colaboradores', 'documentos', 'asistencias', 'incidencias', 'permisos', 'reportes'];
+        
+        function cambiarVista(vistaDestino, btnActivo) {
+            vistas.forEach(v => document.getElementById('vista-' + v).classList.add('hidden'));
+            document.getElementById('vista-' + vistaDestino).classList.remove('hidden');
+
+            document.querySelectorAll('.menu-btn').forEach(b => {
+                b.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors';
+            });
+            btnActivo.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-semibold transition-colors';
+
+            const titulos = {
+                'inicio': { t: 'Panel General', s: 'Resumen del estado de la plantilla y operaciones' },
+                'colaboradores': { t: 'Gestión de Colaboradores', s: 'Administración de accesos (PIN 4 dígitos / Rostro) y horarios' },
+                'documentos': { t: 'Archivos y Expedientes', s: 'Gestión de CV, DNI escaneado y recibos de servicios' },
+                'asistencias': { t: 'Reporte de Asistencias', s: 'Control detallado de ingresos y salidas' },
+                'incidencias': { t: 'Faltas y Tardanzas', s: 'Monitoreo de inasistencias y tiempos de retraso' },
+                'permisos': { t: 'Vacaciones y Permisos', s: 'Gestión de solicitudes y descansos médicos' },
+                'reportes': { t: 'Exportar Reportes', s: 'Filtra y exporta datos a Excel por colaborador y fechas' }
+            };
+            document.getElementById('titulo-header').innerText = titulos[vistaDestino].t;
+            document.getElementById('subtitulo-header').innerText = titulos[vistaDestino].s;
+        }
+
+        // MODAL EMPLEADOS
+        const modalColaborador = document.getElementById('modal-colaborador');
+        function abrirModalColaborador() { modalColaborador.classList.remove('hidden'); }
+        function cerrarModalColaborador() { modalColaborador.classList.add('hidden'); }
+
+        function guardarColaborador(e) {
+            e.preventDefault();
+            const nombre = document.getElementById('reg-nombre').value;
+            const area = document.getElementById('reg-area').value;
+            const horaIngreso = document.getElementById('reg-hora-ingreso').value;
+            const horaSalida = document.getElementById('reg-hora-salida').value;
+            const diasTexto = Array.from(document.querySelectorAll('input[name="dia"]:checked')).map(c => c.value).join(', ');
+
+            const tbody = document.getElementById('tabla-colaboradores-body');
+            tbody.innerHTML = `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">${nombre}</div>
+                        <div class="text-xs text-blue-600 font-mono font-semibold">PIN: **** (Activo)</div>
+                    </td>
+                    <td class="px-6 py-4">${area}</td>
+                    <td class="px-6 py-4">${diasTexto || 'Sin días'}</td>
+                    <td class="px-6 py-4">
+                        <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">${horaIngreso}</span> - 
+                        <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">${horaSalida}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs font-semibold">
+                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Registrado
+                        </span>
+                    </td>
+                </tr>
+            ` + tbody.innerHTML;
+            
+            lucide.createIcons();
+            cerrarModalColaborador();
+            e.target.reset();
+        }
+
+        // FUNCIONALIDAD: NUEVA SOLICITUD
+        const modalSol = document.getElementById('modal-solicitud');
+        function abrirModalSolicitud() { modalSol.classList.remove('hidden'); }
+        function cerrarModalSolicitud() { modalSol.classList.add('hidden'); }
+        
+        function procesarFormularioPermiso(e) {
+            e.preventDefault();
+            const empleado = document.getElementById('empleado-solicitud').value;
+            const tipo = document.getElementById('tipo-solicitud').value;
+            const fInicio = document.getElementById('fecha-inicio').value;
+            const fFin = document.getElementById('fecha-fin').value;
+
+            // Calcular días (aproximación rápida para visualización)
+            const date1 = new Date(fInicio);
+            const date2 = new Date(fFin);
+            const difTime = Math.abs(date2 - date1);
+            const difDays = Math.ceil(difTime / (1000 * 60 * 60 * 24)) + 1; // +1 para contar el mismo día
+
+            const contenedor = document.getElementById('contenedor-solicitudes');
+            
+            // Determinar color de badge
+            let colorClase = 'bg-gray-100 text-gray-700';
+            if(tipo === 'Vacaciones') colorClase = 'bg-blue-100 text-blue-700';
+            if(tipo === 'Descanso Médico') colorClase = 'bg-amber-100 text-amber-700';
+            if(tipo === 'Permiso Personal') colorClase = 'bg-purple-100 text-purple-700';
+
+            const nuevaSolicitud = document.createElement('div');
+            nuevaSolicitud.className = "p-4 border border-gray-200 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-blue-300 transition animate-[fadeIn_0.5s_ease-out]";
+            nuevaSolicitud.innerHTML = `
+                <div>
+                    <p class="font-semibold text-gray-900">${empleado} <span class="${colorClase} text-[10px] px-2 py-0.5 rounded-full ml-2">${tipo}</span></p>
+                    <p class="text-sm text-gray-500 mt-1">Del ${fInicio} al ${fFin} (${difDays} días)</p>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-lg text-sm font-medium transition">Rechazar</button>
+                    <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-medium transition">Aprobar</button>
+                </div>
+            `;
+            
+            contenedor.prepend(nuevaSolicitud);
+            cerrarModalSolicitud();
+            e.target.reset();
+        }
+
+        // RENDERIZAR TABLA DE ASISTENCIAS (Demo)
+        const registrosAsistencia = [
+            { id: '#1042', nombre: 'Juan Pérez', hora: '08:00 AM', fecha: '06 Sep 2026', tipo: 'Ingreso', estado: 'A Tiempo', metodo: 'Rostro', icon: 'scan-face' },
+            { id: '#1043', nombre: 'María López', hora: '08:12 AM', fecha: '06 Sep 2026', tipo: 'Ingreso', estado: 'Tardanza', metodo: 'PIN', icon: 'keypad' }
+        ];
+
+        const tbodyAsistencias = document.getElementById('tabla-asistencias-body');
+        registrosAsistencia.forEach(reg => {
+            tbodyAsistencias.innerHTML += `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 font-mono text-gray-500 text-xs">${reg.id}</td>
+                    <td class="px-6 py-4"><div class="font-medium text-gray-900">${reg.nombre}</div></td>
+                    <td class="px-6 py-4">${reg.hora} <span class="text-xs text-gray-400">(${reg.fecha})</span></td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-semibold ${reg.estado === 'Tardanza' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">${reg.tipo} - ${reg.estado}</span></td>
+                    <td class="px-6 py-4"><span class="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded"><i data-lucide="${reg.icon}" class="w-3.5 h-3.5"></i> ${reg.metodo}</span></td>
+                </tr>`;
+        });
+        lucide.createIcons();
+    </script>
+    <style>
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</body>
+</html>
