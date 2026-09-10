@@ -40,25 +40,40 @@
             </button>
             
             <div class="pt-4 mt-4 border-t border-gray-100"></div>
-            
             <button onclick="cambiarVista('reportes', this)" class="menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
                 <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Exportar Reportes
             </button>
+
+            <!-- ACCESO DIRECTO A LA TERMINAL DE MARCACIÓN -->
+            <div class="pt-4 mt-4 border-t border-gray-100"></div>
+            <p class="text-[10px] font-bold text-gray-400 mb-2 px-2 uppercase tracking-wider">Terminal de Marcación</p>
+            <a href="index.html" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm transition-all border border-blue-200 shadow-sm">
+                <i data-lucide="scan-face" class="w-5 h-5 text-blue-600"></i>
+                <span>Abrir Terminal</span>
+            </a>
         </nav>
     </aside>
 
     <!-- CONTENIDO PRINCIPAL -->
     <main class="flex-1 flex flex-col h-screen overflow-y-auto">
-        <header class="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-10">
+        <header class="bg-white border-b border-gray-200 px-6 sm:px-8 py-4 sm:py-5 flex justify-between items-center sticky top-0 z-10">
             <div>
-                <h2 id="titulo-header" class="text-2xl font-bold text-gray-800">Panel General</h2>
-                <p id="subtitulo-header" class="text-sm text-gray-500 mt-1">Resumen del estado de la plantilla y operaciones</p>
+                <h2 id="titulo-header" class="text-xl sm:text-2xl font-bold text-gray-800">Panel General</h2>
+                <p id="subtitulo-header" class="text-xs sm:text-sm text-gray-500 mt-0.5">Resumen del estado de la plantilla y operaciones</p>
             </div>
-            <div class="flex items-center gap-4">
-                <span class="text-sm font-medium text-gray-500">06 Sep 2026</span>
-                <div class="w-10 h-10 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold shadow">
+            <div class="flex items-center gap-3">
+                <span id="fecha-header" class="hidden md:inline text-xs sm:text-sm font-medium text-gray-500"></span>
+                <a href="index.html" class="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm">
+                    <i data-lucide="scan-face" class="w-4 h-4 text-blue-600"></i>
+                    <span class="hidden sm:inline">Terminal</span>
+                </a>
+                <div class="w-9 h-9 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold shadow text-xs" title="Administrador Activo">
                     AD
                 </div>
+                <button onclick="cerrarSesionAdmin()" id="btn-logout" class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span>Salir</span>
+                </button>
             </div>
         </header>
 
@@ -530,8 +545,176 @@
         </div>
     </div>
 
+    <!-- MODAL DE AUTENTICACIÓN ADMINISTRATIVA (JWT) -->
+    <div id="modal-login" class="hidden fixed inset-0 z-50 bg-gray-900/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white border border-gray-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-blue-100 shadow-sm">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-xl font-black text-gray-900">Acceso Administrativo</h3>
+                <p class="text-xs text-gray-500">Ingresa tus credenciales autorizadas de VALETEC</p>
+            </div>
+            <form id="form-login" onsubmit="procesarLoginAdmin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Usuario</label>
+                    <input type="text" id="login-usuario" required placeholder="admin" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <p id="error-login" class="hidden text-xs text-rose-600 text-center font-semibold bg-rose-50 p-2.5 rounded-lg border border-rose-200"></p>
+                <button type="submit" id="btn-submit-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                    Ingresar al Panel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICACIÓN FLOTANTE -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 max-w-sm p-4 rounded-2xl shadow-2xl border backdrop-blur-md z-50 flex items-center gap-3 bg-white/95 border-gray-200 text-gray-800">
+        <span id="toast-icono" class="shrink-0"></span>
+        <span id="toast-mensaje" class="text-xs sm:text-sm font-medium leading-snug"></span>
+    </div>
+
     <script>
         lucide.createIcons();
+
+        // ==========================================================
+        // GESTIÓN DE SESIÓN JWT Y CONTROL DE ACCESO
+        // ==========================================================
+        function obtenerTokenAdmin() {
+            return localStorage.getItem('vt_admin_token');
+        }
+
+        function mostrarModalLogin() {
+            const modal = document.getElementById('modal-login');
+            if (modal) modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function ocultarModalLogin() {
+            const modal = document.getElementById('modal-login');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function cerrarSesionAdmin() {
+            localStorage.removeItem('vt_admin_token');
+            mostrarToast('success', 'Sesión cerrada exitosamente');
+            mostrarModalLogin();
+        }
+
+        async function procesarLoginAdmin(e) {
+            e.preventDefault();
+            const usuario = document.getElementById('login-usuario').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorElem = document.getElementById('error-login');
+            const btn = document.getElementById('btn-submit-login');
+
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+            errorElem.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: usuario, password: password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    localStorage.setItem('vt_admin_token', data.token);
+                    ocultarModalLogin();
+                    document.getElementById('form-login').reset();
+                    mostrarToast('success', 'Bienvenido al panel administrativo');
+                    inicializarPanel();
+                } else {
+                    errorElem.textContent = data.error || 'Credenciales incorrectas';
+                    errorElem.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorElem.textContent = 'Error de conexión con el servidor';
+                errorElem.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Ingresar al Panel';
+            }
+        }
+
+        // Wrapper seguro de fetch con JWT
+        async function authFetch(url, options = {}) {
+            const token = obtenerTokenAdmin();
+            if (!token) {
+                mostrarModalLogin();
+                throw new Error('No autenticado');
+            }
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            
+            const res = await fetch(url, options);
+            if (res.status === 401 || res.status === 403) {
+                localStorage.removeItem('vt_admin_token');
+                mostrarModalLogin();
+                throw new Error('Sesión expirada o no autorizada');
+            }
+            return res;
+        }
+
+        // Toast de notificaciones
+        let toastTimer = null;
+        function mostrarToast(tipo, mensaje) {
+            const toast = document.getElementById('toast');
+            const icono = document.getElementById('toast-icono');
+            const texto = document.getElementById('toast-mensaje');
+            if (!toast || !icono || !texto) return;
+
+            if (tipo === 'success') {
+                toast.className = "fixed bottom-6 right-6 max-w-sm p-4 rounded-2xl shadow-2xl border backdrop-blur-md z-50 flex items-center gap-3 bg-white/95 border-emerald-200 text-emerald-900";
+                icono.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>';
+            } else {
+                toast.className = "fixed bottom-6 right-6 max-w-sm p-4 rounded-2xl shadow-2xl border backdrop-blur-md z-50 flex items-center gap-3 bg-white/95 border-rose-200 text-rose-900";
+                icono.innerHTML = '<i data-lucide="alert-circle" class="w-5 h-5 text-rose-600"></i>';
+            }
+            texto.textContent = mensaje;
+            toast.classList.remove('hidden');
+            lucide.createIcons();
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        function actualizarFechaHeader() {
+            const elem = document.getElementById('fecha-header');
+            if (elem) {
+                elem.textContent = new Date().toLocaleDateString('es-ES', { 
+                    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' 
+                });
+            }
+        }
+
+        function inicializarPanel() {
+            actualizarFechaHeader();
+            // Verificar validez del token en el backend
+            authFetch('/api/auth/verify')
+                .then(res => res.json())
+                .then(data => {
+                    console.log("✅ Sesión HR activa como:", data.admin?.username);
+                })
+                .catch(() => {
+                    mostrarModalLogin();
+                });
+        }
+
+        window.addEventListener('load', () => {
+            actualizarFechaHeader();
+            if (!obtenerTokenAdmin()) {
+                mostrarModalLogin();
+            } else {
+                inicializarPanel();
+            }
+        });
 
         // NAVEGACIÓN Y VISTAS
         const vistas = ['inicio', 'colaboradores', 'documentos', 'asistencias', 'incidencias', 'permisos', 'reportes'];
