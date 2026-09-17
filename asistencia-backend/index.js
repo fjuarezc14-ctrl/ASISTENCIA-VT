@@ -110,7 +110,13 @@ app.get('/api/empleados', async (req, res) => {
 app.get('/api/empleados/admin', verificarAdmin, async (req, res) => {
     try {
         const query = `
-            SELECT e.id, e.nombre_completo, e.activo, e.creado_en,
+            SELECT e.id, e.nombre_completo, 
+                   COALESCE(e.area, 'General') AS area,
+                   COALESCE(e.dias_laborables, 'Lun, Mar, Mié, Jue, Vie') AS dias_laborables,
+                   COALESCE(e.hora_ingreso, '08:00') AS hora_ingreso,
+                   COALESCE(e.hora_salida, '17:00') AS hora_salida,
+                   e.activo, e.creado_en,
+                   (e.face_descriptor IS NOT NULL) AS tiene_rostro,
                    COUNT(r.id)::int AS total_asistencias
             FROM empleados e
             LEFT JOIN registros_asistencia r ON e.id = r.empleado_id
@@ -150,7 +156,7 @@ app.patch('/api/empleados/:id/toggle', verificarAdmin, async (req, res) => {
 
 // Endpoint 3: Crear nuevo empleado (PROTEGIDO + HASHEO BCRYPT)
 app.post('/api/empleados', verificarAdmin, async (req, res) => {
-    const { nombre_completo, codigo_pin, face_descriptor } = req.body;
+    const { nombre_completo, codigo_pin, face_descriptor, area, dias_laborables, hora_ingreso, hora_salida } = req.body;
 
     if (!nombre_completo || !codigo_pin || !face_descriptor) {
         return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, pin o rostro).' });
@@ -162,15 +168,19 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
         const hashedPin = await bcrypt.hash(codigo_pin.toString(), salt);
 
         const query = `
-            INSERT INTO empleados (nombre_completo, codigo_pin, face_descriptor) 
-            VALUES ($1, $2, $3) 
-            RETURNING id, nombre_completo
+            INSERT INTO empleados (nombre_completo, codigo_pin, face_descriptor, area, dias_laborables, hora_ingreso, hora_salida) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            RETURNING id, nombre_completo, area, dias_laborables, hora_ingreso, hora_salida, activo
         `;
         
         const result = await db.query(query, [
             nombre_completo.trim(), 
             hashedPin, 
-            JSON.stringify(face_descriptor)
+            JSON.stringify(face_descriptor),
+            area || 'General',
+            dias_laborables || 'Lun, Mar, Mié, Jue, Vie',
+            hora_ingreso || '08:00',
+            hora_salida || '17:00'
         ]);
         const nuevoEmpleado = result.rows[0];
 

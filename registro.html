@@ -6,6 +6,7 @@
     <title>VALETEC - Gestión HR & Control Asistencia</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans h-screen overflow-hidden flex relative">
 
@@ -154,41 +155,42 @@
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <div>
-                            <h4 class="font-bold text-gray-800 text-lg">Directorio y Accesos</h4>
-                            <p class="text-xs text-gray-500">Configuración de credenciales y horarios</p>
+                            <h4 class="font-bold text-gray-800 text-lg flex items-center gap-2">
+                                <span>Directorio y Accesos</span>
+                                <span id="badge-total-colaboradores" class="text-xs bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full border border-blue-200">0 empleados</span>
+                            </h4>
+                            <p class="text-xs text-gray-500">Configuración de credenciales, horarios y enrolamiento biométrico</p>
                         </div>
-                        <button onclick="abrirModalColaborador()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition">
-                            <i data-lucide="user-plus" class="w-4 h-4"></i> Registrar Nuevo Empleado
-                        </button>
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <div class="relative flex-1 md:w-64">
+                                <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                                <input type="text" id="buscar-colaborador" oninput="filtrarColaboradores()" placeholder="Buscar por nombre o área..." class="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition">
+                            </div>
+                            <button onclick="abrirModalColaborador()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition shrink-0">
+                                <i data-lucide="user-plus" class="w-4 h-4"></i> Registrar Nuevo Empleado
+                            </button>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm whitespace-nowrap">
                             <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
                                 <tr>
-                                    <th class="px-6 py-4 font-semibold">Empleado / PIN</th>
-                                    <th class="px-6 py-4 font-semibold">Área / Departamento</th>
-                                    <th class="px-6 py-4 font-semibold">Días Laborables</th>
-                                    <th class="px-6 py-4 font-semibold">Horario</th>
-                                    <th class="px-6 py-4 font-semibold">Biometría Facial</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">ID</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">Empleado</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">Área / Departamento</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">Días Laborables</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">Horario</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs">Biometría Facial</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs text-center">Estado</th>
+                                    <th class="px-5 py-3.5 font-semibold text-xs text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-colaboradores-body" class="divide-y divide-gray-100">
-                                <tr class="hover:bg-gray-50 transition">
-                                    <td class="px-6 py-4">
-                                        <div class="font-medium text-gray-900">Juan Pérez</div>
-                                        <div class="text-xs text-blue-600 font-mono font-semibold">PIN: **** (Activo)</div>
-                                    </td>
-                                    <td class="px-6 py-4">Operaciones Mina</td>
-                                    <td class="px-6 py-4">Lun, Mar, Mié, Jue, Vie</td>
-                                    <td class="px-6 py-4">
-                                        <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">08:00 AM</span> - 
-                                        <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">17:00 PM</span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs font-semibold">
-                                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Registrado
-                                        </span>
+                                <tr>
+                                    <td colspan="8" class="p-8 text-center text-gray-400">
+                                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                                        Cargando colaboradores...
                                     </td>
                                 </tr>
                             </tbody>
@@ -442,7 +444,7 @@
                 <button onclick="cerrarModalColaborador()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             
-            <form onsubmit="guardarColaborador(event)" class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            <form id="form-colaborador" onsubmit="guardarColaborador(event)" class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo</label>
@@ -461,6 +463,9 @@
                         <option value="Operaciones Mina">Operaciones Mina</option>
                         <option value="Planta Concentradora">Planta Concentradora</option>
                         <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Administración / Finanzas">Administración / Finanzas</option>
+                        <option value="Ventas / Comercial">Ventas / Comercial</option>
+                        <option value="Logística">Logística</option>
                     </select>
                 </div>
 
@@ -486,17 +491,50 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Escáner Facial</label>
-                    <div class="relative w-full h-44 bg-slate-900 rounded-xl overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-slate-700 text-white">
-                        <i data-lucide="scan-face" class="w-12 h-12 text-blue-500 mb-2 animate-pulse"></i>
-                        <p class="text-xs text-slate-400">Cámara lista para registro facial</p>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-semibold text-gray-700">Escáner Facial Biométrico (3 Muestras)</label>
+                        <span id="badge-muestras" class="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">0/3 Muestras</span>
                     </div>
+
+                    <div class="relative w-full aspect-video bg-slate-900 rounded-2xl overflow-hidden border-2 border-dashed border-slate-700 flex items-center justify-center">
+                        <video id="video-registro" class="absolute inset-0 w-full h-full object-cover hidden" autoplay muted playsinline></video>
+                        
+                        <!-- Guía ovalada sutil para centrado -->
+                        <div id="guia-registro" class="hidden absolute border-2 border-dashed border-blue-400 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors duration-300"></div>
+
+                        <div id="estado-camara" class="text-center z-10 p-4">
+                            <i data-lucide="loader-2" class="w-8 h-8 text-blue-500 animate-spin mx-auto mb-2"></i>
+                            <span id="texto-estado" class="text-xs text-slate-300 font-medium">Iniciando cámara e IA...</span>
+                        </div>
+                    </div>
+
+                    <!-- Indicadores de progreso de las 3 muestras -->
+                    <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+                        <div id="ind-muestra-1" class="bg-gray-50 border border-gray-200 rounded-xl p-2.5 transition-all">
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Muestra 1</p>
+                            <p id="txt-muestra-1" class="text-xs font-semibold text-gray-700 mt-0.5">Frente</p>
+                        </div>
+                        <div id="ind-muestra-2" class="bg-gray-50 border border-gray-200 rounded-xl p-2.5 transition-all">
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Muestra 2</p>
+                            <p id="txt-muestra-2" class="text-xs font-semibold text-gray-700 mt-0.5">Sonrisa / Gesto</p>
+                        </div>
+                        <div id="ind-muestra-3" class="bg-gray-50 border border-gray-200 rounded-xl p-2.5 transition-all">
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Muestra 3</p>
+                            <p id="txt-muestra-3" class="text-xs font-semibold text-gray-700 mt-0.5">Ángulo sutil</p>
+                        </div>
+                    </div>
+
+                    <!-- Instrucción dinámica durante la captura -->
+                    <p id="instruccion-captura" class="text-xs text-gray-500 text-center mt-2.5 min-h-[1.25rem] font-medium">
+                        El sistema capturará 3 ángulos para calibrar el rostro con alta precisión.
+                    </p>
                 </div>
 
                 <div class="pt-3 border-t border-gray-100 flex gap-3">
                     <button type="button" onclick="cerrarModalColaborador()" class="w-1/3 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition text-sm">Cancelar</button>
-                    <button type="submit" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition text-sm">
-                        <i data-lucide="scan" class="w-4 h-4"></i> Guardar Empleado
+                    <button type="submit" id="btn-guardar-colaborador" disabled class="w-2/3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition text-sm">
+                        <i data-lucide="scan" class="w-4 h-4"></i>
+                        <span id="texto-btn-guardar">Esperando cámara...</span>
                     </button>
                 </div>
             </form>
@@ -694,6 +732,11 @@
             }
         }
 
+        let iaLista = false;
+        let streamCamara = null;
+        let listaEmpleadosAdmin = [];
+        const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
+
         function inicializarPanel() {
             actualizarFechaHeader();
             // Verificar validez del token en el backend
@@ -701,6 +744,7 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log("✅ Sesión HR activa como:", data.admin?.username);
+                    cargarColaboradores();
                 })
                 .catch(() => {
                     mostrarModalLogin();
@@ -720,8 +764,12 @@
         const vistas = ['inicio', 'colaboradores', 'documentos', 'asistencias', 'incidencias', 'permisos', 'reportes'];
         
         function cambiarVista(vistaDestino, btnActivo) {
-            vistas.forEach(v => document.getElementById('vista-' + v).classList.add('hidden'));
-            document.getElementById('vista-' + vistaDestino).classList.remove('hidden');
+            vistas.forEach(v => {
+                const el = document.getElementById('vista-' + v);
+                if (el) el.classList.add('hidden');
+            });
+            const activo = document.getElementById('vista-' + vistaDestino);
+            if (activo) activo.classList.remove('hidden');
 
             document.querySelectorAll('.menu-btn').forEach(b => {
                 b.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors';
@@ -737,47 +785,354 @@
                 'permisos': { t: 'Vacaciones y Permisos', s: 'Gestión de solicitudes y descansos médicos' },
                 'reportes': { t: 'Exportar Reportes', s: 'Filtra y exporta datos a Excel por colaborador y fechas' }
             };
-            document.getElementById('titulo-header').innerText = titulos[vistaDestino].t;
-            document.getElementById('subtitulo-header').innerText = titulos[vistaDestino].s;
+            if (titulos[vistaDestino]) {
+                document.getElementById('titulo-header').innerText = titulos[vistaDestino].t;
+                document.getElementById('subtitulo-header').innerText = titulos[vistaDestino].s;
+            }
+
+            if (vistaDestino === 'colaboradores') {
+                cargarColaboradores();
+            }
         }
 
-        // MODAL EMPLEADOS
-        const modalColaborador = document.getElementById('modal-colaborador');
-        function abrirModalColaborador() { modalColaborador.classList.remove('hidden'); }
-        function cerrarModalColaborador() { modalColaborador.classList.add('hidden'); }
+        // ==========================================================
+        // GESTIÓN DE COLABORADORES (CARGA, RENDER Y BÚSQUEDA)
+        // ==========================================================
+        async function cargarColaboradores() {
+            try {
+                const res = await authFetch('/api/empleados/admin');
+                if (!res.ok) return;
+                listaEmpleadosAdmin = await res.json();
+                
+                // Actualizar contadores
+                const badgeTotal = document.getElementById('badge-total-colaboradores');
+                if (badgeTotal) badgeTotal.textContent = `${listaEmpleadosAdmin.length} colaboradores`;
 
-        function guardarColaborador(e) {
+                const totalPlantilla = document.getElementById('total-plantilla-count');
+                if (totalPlantilla) totalPlantilla.textContent = listaEmpleadosAdmin.length;
+
+                renderizarTablaColaboradores(listaEmpleadosAdmin);
+            } catch (err) {
+                console.error("Error al cargar colaboradores:", err);
+            }
+        }
+
+        function renderizarTablaColaboradores(lista) {
+            const tbody = document.getElementById('tabla-colaboradores-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (!lista || lista.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-400">
+                            No se encontraron colaboradores registrados en la base de datos.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            lista.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+
+                const estadoBadge = emp.activo
+                    ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-700">Activo</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border border-gray-200 bg-gray-100 text-gray-500">Inactivo</span>`;
+
+                const btnToggle = emp.activo
+                    ? `<button onclick="toggleEstadoEmpleado(${emp.id})" class="px-2.5 py-1 text-xs font-bold rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors">Desactivar</button>`
+                    : `<button onclick="toggleEstadoEmpleado(${emp.id})" class="px-2.5 py-1 text-xs font-bold rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">Activar</button>`;
+
+                const facialBadge = emp.tiene_rostro
+                    ? `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs font-semibold">
+                         <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> 3 Muestras
+                       </span>`
+                    : `<span class="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs font-semibold">
+                         <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Sin Calibrar
+                       </span>`;
+
+                tr.innerHTML = `
+                    <td class="px-5 py-3.5 font-mono text-gray-400 text-xs font-bold">#${emp.id}</td>
+                    <td class="px-5 py-3.5">
+                        <div class="font-bold text-gray-900 text-sm">${emp.nombre_completo}</div>
+                        <div class="text-[11px] text-blue-600 font-mono font-semibold">PIN: **** (Configurado)</div>
+                    </td>
+                    <td class="px-5 py-3.5">
+                        <span class="bg-slate-100 text-slate-800 text-xs font-semibold px-2 py-0.5 rounded border border-slate-200">
+                            ${emp.area || 'General'}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3.5 text-xs text-gray-600">${emp.dias_laborables || 'Lun, Mar, Mié, Jue, Vie'}</td>
+                    <td class="px-5 py-3.5">
+                        <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium text-xs border border-blue-100">${emp.hora_ingreso || '08:00'}</span> - 
+                        <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-medium text-xs border border-gray-200">${emp.hora_salida || '17:00'}</span>
+                    </td>
+                    <td class="px-5 py-3.5">${facialBadge}</td>
+                    <td class="px-5 py-3.5 text-center">${estadoBadge}</td>
+                    <td class="px-5 py-3.5 text-center">${btnToggle}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        async function toggleEstadoEmpleado(id) {
+            try {
+                const res = await authFetch(`/api/empleados/${id}/toggle`, { method: 'PATCH' });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarToast('success', data.mensaje);
+                    cargarColaboradores();
+                } else {
+                    mostrarToast('error', data.error || 'No se pudo cambiar el estado');
+                }
+            } catch (err) {
+                mostrarToast('error', 'Error al comunicar con el servidor');
+            }
+        }
+
+        function filtrarColaboradores() {
+            const query = (document.getElementById('buscar-colaborador')?.value || '').toLowerCase().trim();
+            const filtrados = listaEmpleadosAdmin.filter(emp => 
+                emp.nombre_completo.toLowerCase().includes(query) ||
+                (emp.area && emp.area.toLowerCase().includes(query)) ||
+                emp.id.toString().includes(query)
+            );
+            renderizarTablaColaboradores(filtrados);
+        }
+
+        // ==========================================================
+        // CÁMARA Y ENROLAMIENTO FACIAL ASISTIDO (MULTI-DESCRIPTOR)
+        // ==========================================================
+        const modalColaborador = document.getElementById('modal-colaborador');
+        const video = document.getElementById('video-registro');
+        const estadoCamara = document.getElementById('estado-camara');
+        const textoEstado = document.getElementById('texto-estado');
+        const btnGuardarColab = document.getElementById('btn-guardar-colaborador');
+        const textoBtnGuardar = document.getElementById('texto-btn-guardar');
+        const guiaRegistro = document.getElementById('guia-registro');
+        const badgeMuestras = document.getElementById('badge-muestras');
+        const instruccionCaptura = document.getElementById('instruccion-captura');
+
+        async function abrirModalColaborador() {
+            modalColaborador.classList.remove('hidden');
+            resetearIndicadoresMuestras();
+            await iniciarCamaraRegistro();
+        }
+
+        function cerrarModalColaborador() {
+            modalColaborador.classList.add('hidden');
+            detenerCamaraRegistro();
+            resetearIndicadoresMuestras();
+            const form = document.getElementById('form-colaborador');
+            if (form) form.reset();
+        }
+
+        function detenerCamaraRegistro() {
+            if (streamCamara) {
+                streamCamara.getTracks().forEach(t => t.stop());
+                streamCamara = null;
+            }
+            if (video) {
+                video.srcObject = null;
+                video.classList.add('hidden');
+            }
+            if (guiaRegistro) guiaRegistro.classList.add('hidden');
+            if (estadoCamara) estadoCamara.classList.remove('hidden');
+            if (btnGuardarColab) btnGuardarColab.disabled = true;
+            if (textoBtnGuardar) textoBtnGuardar.textContent = 'Esperando cámara...';
+        }
+
+        async function iniciarCamaraRegistro() {
+            try {
+                if (!iaLista) {
+                    textoEstado.textContent = "Cargando modelos de IA Facial...";
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                    ]);
+                    iaLista = true;
+                }
+
+                textoEstado.textContent = "Iniciando cámara...";
+                streamCamara = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } 
+                });
+                video.srcObject = streamCamara;
+
+                video.onloadedmetadata = () => {
+                    video.classList.remove('hidden');
+                    if (guiaRegistro) guiaRegistro.classList.remove('hidden');
+                    if (estadoCamara) estadoCamara.classList.add('hidden');
+                    btnGuardarColab.disabled = false;
+                    textoBtnGuardar.textContent = "Iniciar Captura y Guardar";
+                };
+            } catch (err) {
+                console.error("Error al iniciar cámara / IA:", err);
+                textoEstado.textContent = "Error al conectar cámara o modelos de IA.";
+                textoEstado.className = "text-xs text-rose-400 font-medium";
+            }
+        }
+
+        function actualizarIndicadorMuestra(num, estado, texto) {
+            const ind = document.getElementById(`ind-muestra-${num}`);
+            const txt = document.getElementById(`txt-muestra-${num}`);
+            if (!ind || !txt) return;
+
+            if (estado === 'activo') {
+                ind.className = "bg-blue-50 border-2 border-blue-500 rounded-xl p-2.5 transition-all shadow-md scale-105";
+                txt.className = "text-xs font-bold text-blue-700 mt-0.5";
+                txt.textContent = texto;
+            } else if (estado === 'completado') {
+                ind.className = "bg-emerald-50 border-2 border-emerald-500 rounded-xl p-2.5 transition-all";
+                txt.className = "text-xs font-bold text-emerald-700 mt-0.5";
+                txt.textContent = "✓ Capturada";
+            } else {
+                ind.className = "bg-gray-50 border border-gray-200 rounded-xl p-2.5 transition-all opacity-70";
+                txt.className = "text-xs font-semibold text-gray-500 mt-0.5";
+                txt.textContent = texto;
+            }
+        }
+
+        function resetearIndicadoresMuestras() {
+            actualizarIndicadorMuestra(1, 'espera', 'Frente');
+            actualizarIndicadorMuestra(2, 'espera', 'Sonrisa / Gesto');
+            actualizarIndicadorMuestra(3, 'espera', 'Ángulo sutil');
+            if (badgeMuestras) {
+                badgeMuestras.textContent = "0/3 Muestras";
+                badgeMuestras.className = "text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200";
+            }
+            if (guiaRegistro) {
+                guiaRegistro.className = "hidden absolute border-2 border-dashed border-blue-400 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors duration-300";
+            }
+            if (instruccionCaptura) {
+                instruccionCaptura.textContent = "El sistema capturará 3 ángulos para calibrar el rostro con alta precisión.";
+            }
+        }
+
+        async function capturarDescriptorEstable(timeoutMs = 6500) {
+            const start = Date.now();
+            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+            
+            while (Date.now() - start < timeoutMs) {
+                const det = await faceapi.detectSingleFace(video, detectorOptions)
+                                         .withFaceLandmarks()
+                                         .withFaceDescriptor();
+                if (det && det.descriptor && det.detection.score > 0.55) {
+                    return det;
+                }
+                await new Promise(r => setTimeout(r, 120));
+            }
+            return null;
+        }
+
+        async function guardarColaborador(e) {
             e.preventDefault();
-            const nombre = document.getElementById('reg-nombre').value;
+
+            if (!iaLista || !streamCamara) {
+                return mostrarToast('error', 'La cámara o los modelos de IA aún no están listos.');
+            }
+
+            const nombre = document.getElementById('reg-nombre').value.trim();
+            const pin = document.getElementById('reg-pin').value.trim();
             const area = document.getElementById('reg-area').value;
             const horaIngreso = document.getElementById('reg-hora-ingreso').value;
             const horaSalida = document.getElementById('reg-hora-salida').value;
-            const diasTexto = Array.from(document.querySelectorAll('input[name="dia"]:checked')).map(c => c.value).join(', ');
+            const diasChecked = Array.from(document.querySelectorAll('input[name="dia"]:checked')).map(c => c.value);
+            const diasTexto = diasChecked.length > 0 ? diasChecked.join(', ') : 'Lun, Mar, Mié, Jue, Vie';
 
-            const tbody = document.getElementById('tabla-colaboradores-body');
-            tbody.innerHTML = `
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="px-6 py-4">
-                        <div class="font-medium text-gray-900">${nombre}</div>
-                        <div class="text-xs text-blue-600 font-mono font-semibold">PIN: **** (Activo)</div>
-                    </td>
-                    <td class="px-6 py-4">${area}</td>
-                    <td class="px-6 py-4">${diasTexto || 'Sin días'}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">${horaIngreso}</span> - 
-                        <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded font-medium">${horaSalida}</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs font-semibold">
-                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Registrado
-                        </span>
-                    </td>
-                </tr>
-            ` + tbody.innerHTML;
-            
-            lucide.createIcons();
-            cerrarModalColaborador();
-            e.target.reset();
+            if (!nombre) return mostrarToast('error', 'Ingrese el nombre completo.');
+            if (!pin || pin.length !== 4) return mostrarToast('error', 'El PIN debe tener exactamente 4 números.');
+
+            btnGuardarColab.disabled = true;
+            const descriptores = [];
+
+            try {
+                // --- MUESTRA 1: FRENTE ---
+                actualizarIndicadorMuestra(1, 'activo', 'Mirando...');
+                instruccionCaptura.textContent = "📸 Muestra 1/3: Mira directamente al centro de la cámara...";
+                textoBtnGuardar.textContent = "Capturando Muestra 1/3...";
+                guiaRegistro.className = "absolute border-2 border-dashed border-blue-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                const det1 = await capturarDescriptorEstable(7000);
+                if (!det1) throw new Error("No se detectó el rostro para la Muestra 1. Asegúrate de tener buena luz y centrar el rostro.");
+                descriptores.push(Array.from(det1.descriptor));
+                actualizarIndicadorMuestra(1, 'completado');
+                badgeMuestras.textContent = "1/3 Muestras";
+                guiaRegistro.className = "absolute border-2 border-emerald-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                await new Promise(r => setTimeout(r, 700));
+
+                // --- MUESTRA 2: SONRISA / GESTO ---
+                actualizarIndicadorMuestra(2, 'activo', 'Sonríe...');
+                instruccionCaptura.textContent = "📸 Muestra 2/3: Sonríe ligeramente o cambia sutilmente tu expresión...";
+                textoBtnGuardar.textContent = "Capturando Muestra 2/3...";
+                guiaRegistro.className = "absolute border-2 border-dashed border-blue-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                const det2 = await capturarDescriptorEstable(7000);
+                if (!det2) throw new Error("No se detectó el rostro para la Muestra 2. Mantente frente a la cámara.");
+                descriptores.push(Array.from(det2.descriptor));
+                actualizarIndicadorMuestra(2, 'completado');
+                badgeMuestras.textContent = "2/3 Muestras";
+                guiaRegistro.className = "absolute border-2 border-emerald-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                await new Promise(r => setTimeout(r, 700));
+
+                // --- MUESTRA 3: ÁNGULO O GIRO SUTIL ---
+                actualizarIndicadorMuestra(3, 'activo', 'Ángulo...');
+                instruccionCaptura.textContent = "📸 Muestra 3/3: Inclina o gira la cabeza ligeramente hacia un lado...";
+                textoBtnGuardar.textContent = "Capturando Muestra 3/3...";
+                guiaRegistro.className = "absolute border-2 border-dashed border-blue-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                const det3 = await capturarDescriptorEstable(7000);
+                if (!det3) throw new Error("No se detectó el rostro para la Muestra 3. Mantente frente a la cámara.");
+                descriptores.push(Array.from(det3.descriptor));
+                actualizarIndicadorMuestra(3, 'completado');
+                badgeMuestras.textContent = "3/3 Completas";
+                badgeMuestras.className = "text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200";
+                guiaRegistro.className = "absolute border-2 border-emerald-500 w-36 sm:w-44 h-48 sm:h-56 rounded-[50%] pointer-events-none z-10 transition-colors";
+
+                instruccionCaptura.textContent = "Guardando colaborador y biometría en el servidor...";
+                textoBtnGuardar.textContent = "Guardando...";
+
+                const payload = {
+                    nombre_completo: nombre,
+                    codigo_pin: pin,
+                    face_descriptor: descriptores,
+                    area: area,
+                    dias_laborables: diasTexto,
+                    hora_ingreso: horaIngreso,
+                    hora_salida: horaSalida
+                };
+
+                const res = await authFetch('/api/empleados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarToast('success', `¡Colaborador ${data.empleado.nombre_completo} registrado y calibrado exitosamente!`);
+                    cerrarModalColaborador();
+                    cargarColaboradores();
+                } else {
+                    mostrarToast('error', data.error || 'No se pudo guardar el colaborador');
+                    resetearIndicadoresMuestras();
+                    btnGuardarColab.disabled = false;
+                    textoBtnGuardar.textContent = "Iniciar Captura y Guardar";
+                }
+
+            } catch (err) {
+                mostrarToast('error', err.message || 'Error en la captura biométrica.');
+                resetearIndicadoresMuestras();
+                btnGuardarColab.disabled = false;
+                textoBtnGuardar.textContent = "Iniciar Captura y Guardar";
+            }
         }
 
         // FUNCIONALIDAD: NUEVA SOLICITUD
