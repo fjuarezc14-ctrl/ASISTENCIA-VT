@@ -253,8 +253,8 @@
                     </button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button onclick="exportarCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow transition-all flex items-center gap-2 active:scale-95">
-                        <i data-lucide="download" class="w-4 h-4"></i> Exportar Excel (CSV)
+                    <button onclick="exportarExcel()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow transition-all flex items-center gap-2 active:scale-95">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar a Excel (.xlsx)
                     </button>
                     <button onclick="imprimirReporte()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 active:scale-95">
                         <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
@@ -552,34 +552,36 @@
             window.print();
         }
 
-        // 5. Exportar a CSV (Compatible con Excel mediante BOM UTF-8)
-        function exportarCSV() {
-            if (!datosReportesActuales || datosReportesActuales.length === 0) {
-                alert("No hay registros para exportar con los filtros actuales.");
-                return;
+        // 5. Exportar a Excel (.xlsx) Profesional
+        async function exportarExcel() {
+            const selectPeriodo = document.getElementById('filtro-tiempo');
+            const selectEmp = document.getElementById('filtro-empleado');
+            const selectTipo = document.getElementById('filtro-tipo');
+
+            const periodo = selectPeriodo?.value || 'DIA';
+            const empleadoId = selectEmp?.value || 'TODOS';
+            const tipo = selectTipo?.value || 'TODOS';
+
+            try {
+                const res = await authFetch(`/api/reportes/excel?periodo=${periodo}&empleado_id=${empleadoId}&tipo=${tipo}`);
+                if (!res.ok) {
+                    alert("Error al generar el archivo Excel.");
+                    return;
+                }
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const fechaArchivo = new Date().toISOString().split('T')[0];
+                a.download = `Reporte_Asistencias_Valetec_${periodo}_${fechaArchivo}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (err) {
+                console.error("Error al exportar Excel:", err);
+                alert("No se pudo descargar el archivo Excel.");
             }
-
-            let csvContenido = "\uFEFF"; // BOM para caracteres latinos (tildes, ñ)
-            csvContenido += "ID,Empleado,Fecha,Hora,Tipo,Metodo\n";
-
-            datosReportesActuales.forEach(r => {
-                const fechaObj = new Date(r.fecha_hora_marcacion);
-                const fecha = fechaObj.toLocaleDateString('es-ES');
-                const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                
-                const nombreLimpio = `"${(r.nombre_completo || '').replace(/"/g, '""')}"`;
-                csvContenido += `${r.id},${nombreLimpio},${fecha},${hora},${r.tipo},${r.metodo}\n`;
-            });
-
-            const blob = new Blob([csvContenido], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            const fechaArchivo = new Date().toISOString().split('T')[0];
-            link.setAttribute("download", `reporte_asistencias_vt_${fechaArchivo}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
 
         // Cargar al inicio

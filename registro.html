@@ -305,10 +305,10 @@
                             </select>
                         </div>
 
-                        <!-- Botón Exportar Excel/CSV -->
+                        <!-- Botón Exportar Excel (.xlsx) -->
                         <div>
-                            <button onclick="exportarAsistenciasCSV()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition active:scale-95">
-                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar CSV
+                            <button onclick="exportarAsistenciasExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition active:scale-95">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar a Excel (.xlsx)
                             </button>
                         </div>
                     </div>
@@ -438,8 +438,8 @@
                         <button onclick="previsualizarReporte()" class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg text-sm active:scale-95">
                             <i data-lucide="search" class="w-5 h-5"></i> Previsualizar Datos
                         </button>
-                        <button onclick="exportarReporteAvanzadoCSV()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-emerald-500/30 text-sm active:scale-95">
-                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> Exportar a Excel (CSV)
+                        <button onclick="exportarReporteAvanzadoExcel()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-emerald-500/30 text-sm active:scale-95">
+                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> Exportar a Excel (.xlsx)
                         </button>
                     </div>
 
@@ -1566,40 +1566,29 @@
             renderizarTablaAsistencias(filtrados);
         }
 
-        function exportarAsistenciasCSV() {
-            if (!listaAsistenciasCache || listaAsistenciasCache.length === 0) {
-                mostrarToast('error', 'No hay registros de asistencia para exportar.');
-                return;
+        async function exportarAsistenciasExcel() {
+            const periodo = document.getElementById('filtro-periodo-asistencia')?.value || 'DIA';
+            mostrarToast('success', 'Generando archivo Excel profesional...');
+            try {
+                const res = await authFetch(`/api/reportes/excel?periodo=${periodo}`);
+                if (!res.ok) {
+                    mostrarToast('error', 'Error al generar el archivo Excel.');
+                    return;
+                }
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Reporte_Asistencias_${periodo}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                mostrarToast('success', 'Excel (.xlsx) descargado exitosamente.');
+            } catch (err) {
+                console.error("Error al exportar asistencias a Excel:", err);
+                mostrarToast('error', 'No se pudo descargar el archivo Excel.');
             }
-
-            const encabezados = ['ID', 'Empleado', 'Area', 'Fecha', 'Hora', 'Tipo', 'Tiempo Efectivo', 'Metodo'];
-            const filas = listaAsistenciasCache.map(r => {
-                const f = new Date(r.fecha_hora_marcacion);
-                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
-                const fecha = fLima.toISOString().split('T')[0];
-                const hora = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
-                return [
-                    r.id,
-                    `"${(r.nombre_completo || '').replace(/"/g, '""')}"`,
-                    `"${(r.area || '').replace(/"/g, '""')}"`,
-                    fecha,
-                    hora,
-                    r.tipo,
-                    `"${r.horas_trabajadas || (r.tipo === 'INGRESO' ? 'En jornada' : '-')}"`,
-                    r.metodo
-                ].join(',');
-            });
-
-            const csvContent = '\uFEFF' + [encabezados.join(','), ...filas].join('\r\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `asistencias_valetec_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            mostrarToast('success', 'Archivo CSV de asistencias descargado con éxito.');
         }
 
         // 3. GENERADOR AVANZADO DE REPORTES (VISTA REPORTES)
@@ -1684,45 +1673,37 @@
             }
         }
 
-        async function exportarReporteAvanzadoCSV() {
-            if (!listaReportesCache || listaReportesCache.length === 0) {
-                await previsualizarReporte();
+        async function exportarReporteAvanzadoExcel() {
+            const empId = document.getElementById('rep-filtro-empleado')?.value || 'TODOS';
+            const tipo = document.getElementById('rep-filtro-tipo')?.value || 'TODOS';
+            const fInicio = document.getElementById('rep-fecha-inicio')?.value;
+            const fFin = document.getElementById('rep-fecha-fin')?.value;
+
+            let queryParams = `empleado_id=${empId}&tipo=${tipo}`;
+            if (fInicio) queryParams += `&fecha_inicio=${fInicio}`;
+            if (fFin) queryParams += `&fecha_fin=${fFin}`;
+
+            mostrarToast('success', 'Generando reporte contable en Excel (.xlsx)...');
+            try {
+                const res = await authFetch(`/api/reportes/excel?${queryParams}`);
+                if (!res.ok) {
+                    mostrarToast('error', 'Error al generar el reporte contable.');
+                    return;
+                }
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Reporte_Contable_Valetec_${fInicio || 'Historial'}_${fFin || ''}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                mostrarToast('success', 'Reporte Excel (.xlsx) descargado para Contabilidad.');
+            } catch (err) {
+                console.error("Error al exportar reporte contable a Excel:", err);
+                mostrarToast('error', 'No se pudo generar el archivo Excel.');
             }
-
-            if (!listaReportesCache || listaReportesCache.length === 0) {
-                mostrarToast('error', 'No hay registros en el reporte para exportar.');
-                return;
-            }
-
-            const encabezados = ['ID', 'Empleado', 'Area', 'Fecha', 'Hora', 'Tipo', 'Horas Efectivas', 'Minutos Netos', 'Metodo'];
-            const filas = listaReportesCache.map(r => {
-                const f = new Date(r.fecha_hora_marcacion);
-                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
-                const fecha = fLima.toISOString().split('T')[0];
-                const hora = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
-                return [
-                    r.id,
-                    `"${(r.nombre_completo || '').replace(/"/g, '""')}"`,
-                    `"${(r.area || '').replace(/"/g, '""')}"`,
-                    fecha,
-                    hora,
-                    r.tipo,
-                    `"${r.horas_trabajadas || (r.tipo === 'INGRESO' ? 'En jornada' : '-')}"`,
-                    r.minutos_netos || 0,
-                    r.metodo
-                ].join(',');
-            });
-
-            const csvContent = '\uFEFF' + [encabezados.join(','), ...filas].join('\r\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `reporte_contable_valetec_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            mostrarToast('success', 'Reporte exportado exitosamente para Excel.');
         }
         
         lucide.createIcons();

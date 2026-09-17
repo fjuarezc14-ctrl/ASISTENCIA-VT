@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const ExcelJS = require('exceljs');
 const db = require('./db');
 require('dotenv').config();
 
@@ -24,8 +25,8 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Bloqueado por política CORS'));
@@ -43,12 +44,18 @@ app.use(express.json());
 // MIDDLEWARE DE AUTENTICACIÓN ADMINISTRATIVA (JWT)
 // ==========================================================
 function verificarAdmin(req, res, next) {
+    let token = null;
     const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+        token = req.query.token;
+    }
+
+    if (!token) {
         return res.status(401).json({ error: 'Acceso no autorizado. Debe iniciar sesión como administrador.' });
     }
 
-    const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.admin = decoded;
@@ -684,6 +691,292 @@ app.get('/api/reportes', verificarAdmin, async (req, res) => {
     } catch (err) {
         console.error('Error GET reportes:', err);
         res.status(500).json({ error: 'Error al obtener reportes filtrados' });
+    }
+});
+
+// Endpoint Exportar a Excel (.xlsx) Profesional para Contabilidad (PROTEGIDO)
+app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
+    const { empleado_id, periodo, tipo, fecha_inicio, fecha_fin } = req.query;
+
+    try {
+        let query = `
+            SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
+                   e.hora_ingreso, e.hora_ingreso_sab,
+                   r.fecha_hora_marcacion, r.metodo, r.tipo, 
+                   r.horas_trabajadas, r.minutos_netos
+            FROM registros_asistencia r
+            JOIN empleados e ON r.empleado_id = e.id
+            WHERE 1=1
+        `;
+        const values = [];
+
+        if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
+            values.push(empleado_id);
+            query += ` AND r.empleado_id = $${values.length}`;
+        }
+
+        if (tipo && tipo !== 'TODOS' && tipo !== 'todos') {
+            values.push(tipo.toUpperCase());
+            query += ` AND r.tipo = $${values.length}`;
+        }
+
+        if (fecha_inicio) {
+            values.push(fecha_inicio);
+            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date >= $${values.length}::date`;
+        }
+
+        if (fecha_fin) {
+            values.push(fecha_fin);
+            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date <= $${values.length}::date`;
+        }
+
+        if (!fecha_inicio && !fecha_fin) {
+            if (periodo === 'DIA' || periodo === 'dia') {
+                query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`;
+            } else if (periodo === 'SEMANA' || periodo === 'semana') {
+                query += ` AND r.fecha_hora_marcacion >= date_trunc('week', CURRENT_TIMESTAMP)`;
+            } else if (periodo === 'MES' || periodo === 'mes') {
+                query += ` AND r.fecha_hora_marcacion >= date_trunc('month', CURRENT_TIMESTAMP)`;
+            }
+        }
+
+        query += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 5000;`;
+
+        const result = await db.query(query, values);
+        const filas = result.rows;
+
+        // Crear libro de Excel profesional
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'VT Valetec';
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet('Control de Asistencias', {
+            views: [{ state: 'frozen', ySplit: 5, showGridLines: true }]
+        });
+
+        // Configurar anchos de columna
+        sheet.columns = [
+            { key: 'id', width: 10 },
+            { key: 'empleado', width: 32 },
+            { key: 'area', width: 26 },
+            { key: 'fecha', width: 14 },
+            { key: 'hora', width: 14 },
+            { key: 'tipo', width: 16 },
+            { key: 'tiempo_texto', width: 20 },
+            { key: 'horas_decimal', width: 20 },
+            { key: 'minutos_tardanza', width: 20 },
+            { key: 'puntualidad', width: 22 },
+            { key: 'metodo', width: 16 }
+        ];
+
+        // Fila 1: Título Institucional
+        sheet.mergeCells('A1:K1');
+        const r1 = sheet.getCell('A1');
+        r1.value = 'VT VALETEC • CONTROL BIOMÉTRICO Y REGISTRO DE ASISTENCIAS';
+        r1.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        r1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Slate 900
+        r1.alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet.getRow(1).height = 32;
+
+        // Fila 2: Subtítulo
+        sheet.mergeCells('A2:K2');
+        const r2 = sheet.getCell('A2');
+        r2.value = 'REPORTE OFICIAL CONSOLIDADO PARA CONTROL DE HORAS EFECTIVAS Y PLANILLAS';
+        r2.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF94A3B8' } }; // Slate 400
+        r2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate 800
+        r2.alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet.getRow(2).height = 20;
+
+        // Fila 3: Metadata
+        const ahora = new Date();
+        const ahoraLima = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+        const emisionStr = ahoraLima.toISOString().replace('T', ' ').slice(0, 19);
+
+        sheet.mergeCells('A3:E3');
+        const r3a = sheet.getCell('A3');
+        r3a.value = `Fecha de Emisión: ${emisionStr} (Hora de Lima)`;
+        r3a.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF475569' } };
+        r3a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        r3a.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        sheet.mergeCells('F3:K3');
+        const r3b = sheet.getCell('F3');
+        r3b.value = `Total Registros: ${filas.length} | Filtro: ${tipo || 'TODOS'} | Periodo: ${periodo || (fecha_inicio ? `${fecha_inicio} a ${fecha_fin}` : 'Personalizado')}`;
+        r3b.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF475569' } };
+        r3b.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        r3b.alignment = { vertical: 'middle', horizontal: 'right' };
+        sheet.getRow(3).height = 18;
+
+        // Fila 4: Separador en blanco
+        sheet.getRow(4).height = 10;
+
+        // Fila 5: Cabecera de Tabla
+        const headers = [
+            'ID REGISTRO', 'COLABORADOR', 'ÁREA / DEPTO', 'FECHA', 'HORA', 
+            'TIPO', 'TIEMPO EFECTIVO', 'HORAS (DECIMAL)', 'MIN. TARDANZA', 'PUNTUALIDAD', 'MÉTODO'
+        ];
+        const row5 = sheet.getRow(5);
+        row5.values = headers;
+        row5.height = 26;
+        row5.eachCell((cell) => {
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; // Blue 900
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F172A' } }
+            };
+        });
+
+        // Insertar datos
+        const borderThin = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        let startRowIndex = 6;
+        filas.forEach((r, idx) => {
+            const rowIdx = startRowIndex + idx;
+            const f = new Date(r.fecha_hora_marcacion);
+            const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+            const fechaStr = fLima.toISOString().split('T')[0];
+            const horaStr = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+            const esIngreso = r.tipo === 'INGRESO';
+            const horasDecimal = r.minutos_netos ? Number((r.minutos_netos / 60).toFixed(2)) : null;
+
+            // Tardanza
+            let minTardanza = 0;
+            let puntualidadStr = 'Salida';
+            if (esIngreso) {
+                const diaSem = fLima.getUTCDay();
+                const horaPactada = diaSem === 6 ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
+                const [hP, mP] = horaPactada.split(':').map(Number);
+                const minPactados = hP * 60 + mP;
+                const minMarc = fLima.getUTCHours() * 60 + fLima.getUTCMinutes();
+                const difMin = minMarc - minPactados;
+
+                if (difMin > 5) {
+                    minTardanza = difMin;
+                    puntualidadStr = `Tardanza (+${difMin}m)`;
+                } else {
+                    puntualidadStr = 'A Tiempo';
+                }
+            }
+
+            const isZebra = idx % 2 === 1;
+            const rowBg = isZebra ? 'FFF8FAFC' : 'FFFFFFFF';
+
+            const row = sheet.getRow(rowIdx);
+            row.height = 20;
+            row.values = [
+                `#${r.id}`,
+                r.nombre_completo,
+                r.area || 'General',
+                fechaStr,
+                horaStr,
+                esIngreso ? 'ENTRADA' : 'SALIDA',
+                r.horas_trabajadas || (esIngreso ? 'En jornada' : '-'),
+                horasDecimal,
+                minTardanza,
+                puntualidadStr,
+                r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO')
+            ];
+
+            // Formato de celdas
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                cell.font = { name: 'Arial', size: 9, color: { argb: 'FF1E293B' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+                cell.border = borderThin;
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+                if (colNumber === 2 || colNumber === 3) { // Colaborador y Área
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+                }
+
+                if (colNumber === 6) { // Tipo
+                    cell.font = { 
+                        name: 'Arial', size: 9, bold: true, 
+                        color: { argb: esIngreso ? 'FF059669' : 'FFE11D48' } // Verde / Rosa
+                    };
+                }
+
+                if (colNumber === 8) { // Horas Decimal
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '0.00';
+                    if (horasDecimal) {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
+                    }
+                }
+
+                if (colNumber === 9) { // Minutos Tardanza
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '0';
+                    if (minTardanza > 0) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // Amber 100
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } }; // Amber 700
+                    }
+                }
+
+                if (colNumber === 10 && minTardanza > 0) {
+                    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+                }
+            });
+        });
+
+        // Fila de Totales
+        const lastDataRow = startRowIndex + filas.length - 1;
+        const totalRowIdx = lastDataRow + 1;
+
+        if (filas.length > 0) {
+            sheet.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
+            const totalLabelCell = sheet.getCell(`A${totalRowIdx}`);
+            totalLabelCell.value = 'TOTAL GENERAL ACUMULADO:';
+            totalLabelCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+            totalLabelCell.alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
+
+            // Total Horas Decimales
+            const totalHorasCell = sheet.getCell(`H${totalRowIdx}`);
+            totalHorasCell.value = { formula: `SUM(H${startRowIndex}:H${lastDataRow})` };
+            totalHorasCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
+            totalHorasCell.numFmt = '#,##0.00';
+            totalHorasCell.alignment = { vertical: 'middle', horizontal: 'right' };
+
+            // Total Minutos Tardanza
+            const totalTardanzasCell = sheet.getCell(`I${totalRowIdx}`);
+            totalTardanzasCell.value = { formula: `SUM(I${startRowIndex}:I${lastDataRow})` };
+            totalTardanzasCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFB45309' } };
+            totalTardanzasCell.numFmt = '#,##0';
+            totalTardanzasCell.alignment = { vertical: 'middle', horizontal: 'right' };
+
+            const totalRow = sheet.getRow(totalRowIdx);
+            totalRow.height = 24;
+            totalRow.eachCell({ includeEmpty: true }, (cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                cell.border = {
+                    top: { style: 'medium', color: { argb: 'FF475569' } },
+                    bottom: { style: 'double', color: { argb: 'FF0F172A' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+            });
+        }
+
+        // Activar AutoFiltros
+        sheet.autoFilter = `A5:K5`;
+
+        // Generar archivo binario y enviar
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="Reporte_Asistencias_Valetec_${ahoraLima.toISOString().split('T')[0]}.xlsx"`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (err) {
+        console.error('Error GET reportes/excel:', err);
+        res.status(500).json({ error: 'Error al generar archivo Excel' });
     }
 });
 
