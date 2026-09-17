@@ -401,7 +401,23 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
         VALUES ($1, $2, $3, $4, $5) 
         RETURNING id, fecha_hora_marcacion
     `;
-    await db.query(insertQuery, [empleadoId, metodo.toUpperCase(), tipoAsistencia, horasTrabajadasTexto, minutosNetos]);
+    const insertResult = await db.query(insertQuery, [empleadoId, metodo.toUpperCase(), tipoAsistencia, horasTrabajadasTexto, minutosNetos]);
+    const nuevoRegistroId = insertResult.rows[0]?.id;
+
+    // Si es un INGRESO, vincular cualquier justificación o tolerancia previa para hoy
+    if (tipoAsistencia === 'INGRESO' && nuevoRegistroId) {
+        try {
+            await db.query(`
+                UPDATE justificaciones_asistencia 
+                SET asistencia_id = $1 
+                WHERE empleado_id = $2 
+                  AND fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
+                  AND asistencia_id IS NULL
+            `, [nuevoRegistroId, empleadoId]);
+        } catch (e) {
+            console.error('Error al vincular justificación previa:', e);
+        }
+    }
     
     // Siguiente acción sugerida
     const proximaAccion = tipoAsistencia === 'INGRESO' ? 'SALIDA' : 'INGRESO';
@@ -522,6 +538,137 @@ app.post('/api/asistencia', async (req, res) => {
 });
 
 // ==========================================================
+// MÓDULO DE JUSTIFICACIONES, TOLERANCIAS Y PERMISOS (GERENCIA)
+// ==========================================================
+
+// 1. Obtener justificaciones (con filtros opcionales)
+app.get('/api/justificaciones', verificarAdmin, async (req, res) => {
+    const { fecha, empleado_id, tipo } = req.query;
+    try {
+        let query = `
+            SELECT j.id, j.empleado_id, e.nombre_completo, e.area, j.asistencia_id, 
+                   j.fecha, j.tipo, j.hora_tolerancia, j.motivo, j.autorizado_por, j.creado_en
+            FROM justificaciones_asistencia j
+            JOIN empleados e ON j.empleado_id = e.id
+            WHERE 1=1
+        `;
+        const values = [];
+
+        if (fecha) {
+            values.push(fecha);
+            query += ` AND j.fecha = $${values.length}`;
+        }
+        if (empleado_id && empleado_id !== 'TODOS') {
+            values.push(empleado_id);
+            query += ` AND j.empleado_id = $${values.length}`;
+        }
+        if (tipo && tipo !== 'TODOS') {
+            values.push(tipo);
+            query += ` AND j.tipo = $${values.length}`;
+        }
+
+        query += ` ORDER BY j.fecha DESC, j.creado_en DESC LIMIT 500;`;
+        const result = await db.query(query, values);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error GET /api/justificaciones:', err);
+        res.status(500).json({ error: 'Error al consultar justificaciones' });
+    }
+});
+
+// 2. Registrar o conceder justificación / tolerancia
+app.post('/api/justificaciones', verificarAdmin, async (req, res) => {
+    let { empleado_id, asistencia_id, tipo, fecha, hora_tolerancia, motivo } = req.body;
+
+    try {
+        // Si viene con asistencia_id pero sin empleado_id ni fecha, obtenerlos del registro
+        if (asistencia_id && (!empleado_id || !fecha)) {
+            const regQuery = await db.query(
+                `SELECT empleado_id, (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date AS fecha 
+                 FROM registros_asistencia WHERE id = $1`,
+                [asistencia_id]
+            );
+            if (regQuery.rows.length === 0) {
+                return res.status(404).json({ error: 'Registro de asistencia no encontrado.' });
+            }
+            empleado_id = empleado_id || regQuery.rows[0].empleado_id;
+            fecha = fecha || regQuery.rows[0].fecha;
+        }
+
+        if (!empleado_id) {
+            return res.status(400).json({ error: 'Debe indicar el colaborador.' });
+        }
+
+        if (!fecha) {
+            const hoyLima = new Date(Date.now() - (5 * 60 * 60 * 1000));
+            fecha = hoyLima.toISOString().split('T')[0];
+        }
+
+        const tipoFinal = tipo || 'TARDANZA_JUSTIFICADA';
+        const motivoFinal = (motivo && motivo.trim()) ? motivo.trim() : 'Autorizado por Gerencia';
+        const autorizadoPor = (req.admin && req.admin.username) ? req.admin.username : 'Gerencia';
+
+        // Si ya existe una justificación para esta asistencia, actualizarla
+        if (asistencia_id) {
+            const checkExist = await db.query(
+                `SELECT id FROM justificaciones_asistencia WHERE asistencia_id = $1`,
+                [asistencia_id]
+            );
+            if (checkExist.rows.length > 0) {
+                const updateRes = await db.query(
+                    `UPDATE justificaciones_asistencia 
+                     SET motivo = $1, autorizado_por = $2, tipo = $3
+                     WHERE id = $4 RETURNING *`,
+                    [motivoFinal, autorizadoPor, tipoFinal, checkExist.rows[0].id]
+                );
+                return res.json({ success: true, mensaje: 'Justificación actualizada', justificacion: updateRes.rows[0] });
+            }
+        }
+
+        const insertQuery = `
+            INSERT INTO justificaciones_asistencia (
+                empleado_id, asistencia_id, fecha, tipo, hora_tolerancia, motivo, autorizado_por
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `;
+        const result = await db.query(insertQuery, [
+            empleado_id,
+            asistencia_id || null,
+            fecha,
+            tipoFinal,
+            hora_tolerancia || null,
+            motivoFinal,
+            autorizadoPor
+        ]);
+
+        res.status(201).json({
+            success: true,
+            mensaje: 'Justificación registrada correctamente',
+            justificacion: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error('Error POST /api/justificaciones:', err);
+        res.status(500).json({ error: 'Error al registrar la justificación' });
+    }
+});
+
+// 3. Eliminar / Revocar justificación
+app.delete('/api/justificaciones/:id', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM justificaciones_asistencia WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Justificación no encontrada.' });
+        }
+        res.json({ success: true, mensaje: 'Justificación revocada correctamente.' });
+    } catch (err) {
+        console.error('Error DELETE /api/justificaciones/:id:', err);
+        res.status(500).json({ error: 'Error al revocar la justificación' });
+    }
+});
+
+// ==========================================================
 // REPORTES (PROTEGIDOS CON JWT)
 // ==========================================================
 
@@ -553,6 +700,14 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
         `);
         const empleados = empQuery.rows;
         const totalPlantilla = empleados.length;
+
+        // 1.1 Justificaciones y tolerancias para hoy
+        const justifQuery = await db.query(`
+            SELECT id, empleado_id, asistencia_id, tipo, hora_tolerancia, motivo, autorizado_por
+            FROM justificaciones_asistencia 
+            WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+        `);
+        const justificacionesHoy = justifQuery.rows;
 
         // 2. Marcaciones de hoy (reloj Lima UTC -5)
         const hoyQuery = await db.query(`
@@ -588,25 +743,41 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
 
                 const difMin = minutosMarc - minutosPactados;
                 if (difMin > 5) {
+                    const justif = justificacionesHoy.find(j => 
+                        (j.asistencia_id && j.asistencia_id === reg.id) || 
+                        (j.empleado_id === reg.empleado_id && (j.tipo === 'TARDANZA_JUSTIFICADA' || j.tipo === 'TOLERANCIA_PREVIA'))
+                    );
+
                     tardanzasList.push({
+                        asistencia_id: reg.id,
                         empleado_id: reg.empleado_id,
                         nombre: reg.nombre_completo,
                         area: reg.area,
                         hora_ingreso: fechaMarcLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
                         turno: horaPactada,
-                        minutos_retraso: difMin
+                        minutos_retraso: difMin,
+                        justificado: !!justif,
+                        justificacion_id: justif ? justif.id : null,
+                        motivo_justificacion: justif ? justif.motivo : null
                     });
                 }
             }
         });
 
         // 4. Inasistencias de hoy (empleados activos sin ingreso)
-        const inasistenciasList = empleados.filter(e => !idsPresentes.has(e.id)).map(e => ({
-            empleado_id: e.id,
-            nombre: e.nombre_completo,
-            area: e.area,
-            turno: diaSemana === 6 ? (e.hora_ingreso_sab || '08:00') : (e.hora_ingreso || '08:00')
-        }));
+        const inasistenciasList = empleados.filter(e => !idsPresentes.has(e.id)).map(e => {
+            const justifInasist = justificacionesHoy.find(j => j.empleado_id === e.id);
+            return {
+                empleado_id: e.id,
+                nombre: e.nombre_completo,
+                area: e.area,
+                turno: diaSemana === 6 ? (e.hora_ingreso_sab || '08:00') : (e.hora_ingreso || '08:00'),
+                tolerancia: justifInasist && justifInasist.hora_tolerancia ? justifInasist.hora_tolerancia : null,
+                en_permiso: justifInasist && (justifInasist.tipo === 'PERMISO_DIA' || justifInasist.tipo === 'VACACIONES'),
+                tipo_permiso: justifInasist ? justifInasist.tipo : null,
+                motivo_justificacion: justifInasist ? justifInasist.motivo : null
+            };
+        });
 
         // 5. Últimas actividades
         const actividadReciente = registrosHoy.slice(0, 8).map(r => {
@@ -647,9 +818,15 @@ app.get('/api/reportes', verificarAdmin, async (req, res) => {
             SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
                    e.hora_ingreso, e.hora_ingreso_sab,
                    r.fecha_hora_marcacion, r.metodo, r.tipo, 
-                   r.horas_trabajadas, r.minutos_netos
+                   r.horas_trabajadas, r.minutos_netos,
+                   j.id AS justificacion_id, j.tipo AS tipo_justificacion,
+                   j.hora_tolerancia, j.motivo AS motivo_justificacion, j.autorizado_por
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
+            LEFT JOIN justificaciones_asistencia j ON (
+                j.asistencia_id = r.id OR 
+                (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
+            )
             WHERE 1=1
         `;
         const values = [];
@@ -703,9 +880,15 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
                    e.hora_ingreso, e.hora_ingreso_sab,
                    r.fecha_hora_marcacion, r.metodo, r.tipo, 
-                   r.horas_trabajadas, r.minutos_netos
+                   r.horas_trabajadas, r.minutos_netos,
+                   j.id AS justificacion_id, j.tipo AS tipo_justificacion,
+                   j.motivo AS motivo_justificacion, j.autorizado_por
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
+            LEFT JOIN justificaciones_asistencia j ON (
+                j.asistencia_id = r.id OR 
+                (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
+            )
             WHERE 1=1
         `;
         const values = [];
@@ -754,7 +937,7 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             views: [{ state: 'frozen', ySplit: 5, showGridLines: true }]
         });
 
-        // Configurar anchos de columna
+        // Configurar anchos de columna (12 columnas)
         sheet.columns = [
             { key: 'id', width: 10 },
             { key: 'empleado', width: 32 },
@@ -765,12 +948,13 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             { key: 'tiempo_texto', width: 20 },
             { key: 'horas_decimal', width: 20 },
             { key: 'minutos_tardanza', width: 20 },
-            { key: 'puntualidad', width: 22 },
-            { key: 'metodo', width: 16 }
+            { key: 'puntualidad', width: 24 },
+            { key: 'metodo', width: 16 },
+            { key: 'observacion', width: 32 }
         ];
 
         // Fila 1: Título Institucional
-        sheet.mergeCells('A1:K1');
+        sheet.mergeCells('A1:L1');
         const r1 = sheet.getCell('A1');
         r1.value = 'VT VALETEC • CONTROL BIOMÉTRICO Y REGISTRO DE ASISTENCIAS';
         r1.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -779,7 +963,7 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         sheet.getRow(1).height = 32;
 
         // Fila 2: Subtítulo
-        sheet.mergeCells('A2:K2');
+        sheet.mergeCells('A2:L2');
         const r2 = sheet.getCell('A2');
         r2.value = 'REPORTE OFICIAL CONSOLIDADO PARA CONTROL DE HORAS EFECTIVAS Y PLANILLAS';
         r2.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF94A3B8' } }; // Slate 400
@@ -799,7 +983,7 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         r3a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         r3a.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
-        sheet.mergeCells('F3:K3');
+        sheet.mergeCells('F3:L3');
         const r3b = sheet.getCell('F3');
         r3b.value = `Total Registros: ${filas.length} | Filtro: ${tipo || 'TODOS'} | Periodo: ${periodo || (fecha_inicio ? `${fecha_inicio} a ${fecha_fin}` : 'Personalizado')}`;
         r3b.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF475569' } };
@@ -813,7 +997,7 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         // Fila 5: Cabecera de Tabla
         const headers = [
             'ID REGISTRO', 'COLABORADOR', 'ÁREA / DEPTO', 'FECHA', 'HORA', 
-            'TIPO', 'TIEMPO EFECTIVO', 'HORAS (DECIMAL)', 'MIN. TARDANZA', 'PUNTUALIDAD', 'MÉTODO'
+            'TIPO', 'TIEMPO EFECTIVO', 'HORAS (DECIMAL)', 'MIN. TARDANZA', 'PUNTUALIDAD', 'MÉTODO', 'OBSERVACIÓN'
         ];
         const row5 = sheet.getRow(5);
         row5.values = headers;
@@ -847,9 +1031,11 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             const esIngreso = r.tipo === 'INGRESO';
             const horasDecimal = r.minutos_netos ? Number((r.minutos_netos / 60).toFixed(2)) : null;
 
-            // Tardanza
+            // Tardanza y Justificación
             let minTardanza = 0;
             let puntualidadStr = 'Salida';
+            const tieneJustificacion = !!r.justificacion_id;
+
             if (esIngreso) {
                 const diaSem = fLima.getUTCDay();
                 const horaPactada = diaSem === 6 ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
@@ -859,8 +1045,13 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
                 const difMin = minMarc - minPactados;
 
                 if (difMin > 5) {
-                    minTardanza = difMin;
-                    puntualidadStr = `Tardanza (+${difMin}m)`;
+                    if (tieneJustificacion) {
+                        minTardanza = 0; // Exonerado por Gerencia
+                        puntualidadStr = 'Tardanza Justificada';
+                    } else {
+                        minTardanza = difMin;
+                        puntualidadStr = `Tardanza (+${difMin}m)`;
+                    }
                 } else {
                     puntualidadStr = 'A Tiempo';
                 }
@@ -882,7 +1073,8 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
                 horasDecimal,
                 minTardanza,
                 puntualidadStr,
-                r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO')
+                r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO'),
+                tieneJustificacion ? (r.motivo_justificacion || 'Autorizado por Gerencia') : ''
             ];
 
             // Formato de celdas
@@ -920,8 +1112,17 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
                     }
                 }
 
-                if (colNumber === 10 && minTardanza > 0) {
-                    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+                if (colNumber === 10) {
+                    if (puntualidadStr === 'Tardanza Justificada') {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } }; // Light blue
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0284C7' } }; // Sky 600
+                    } else if (minTardanza > 0) {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+                    }
+                }
+
+                if (colNumber === 12 && tieneJustificacion) { // Observación
+                    cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF0369A1' } };
                 }
             });
         });
@@ -965,7 +1166,7 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         }
 
         // Activar AutoFiltros
-        sheet.autoFilter = `A5:K5`;
+        sheet.autoFilter = `A5:L5`;
 
         // Generar archivo binario y enviar
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

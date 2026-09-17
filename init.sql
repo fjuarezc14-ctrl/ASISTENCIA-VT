@@ -41,3 +41,23 @@ CREATE INDEX IF NOT EXISTS idx_asistencia_fecha
 
 CREATE INDEX IF NOT EXISTS idx_empleados_activo 
     ON empleados(activo);
+
+-- 4. Tabla de Justificaciones, Tolerancias y Permisos Gerenciales
+CREATE TABLE IF NOT EXISTS justificaciones_asistencia (
+    id SERIAL PRIMARY KEY,
+    empleado_id INTEGER REFERENCES empleados(id) ON DELETE CASCADE,
+    asistencia_id INTEGER REFERENCES registros_asistencia(id) ON DELETE CASCADE,
+    fecha DATE NOT NULL,
+    tipo VARCHAR(50) NOT NULL, -- 'TARDANZA_JUSTIFICADA', 'TOLERANCIA_PREVIA', 'PERMISO_DIA', 'VACACIONES'
+    hora_tolerancia VARCHAR(10), -- Ej: '09:30' (opcional si es tolerancia previa)
+    motivo VARCHAR(255) DEFAULT 'Autorizado por Gerencia',
+    autorizado_por VARCHAR(100) DEFAULT 'Gerencia',
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_justif_empleado_fecha 
+    ON justificaciones_asistencia(empleado_id, fecha);
+
+CREATE INDEX IF NOT EXISTS idx_justif_asistencia 
+    ON justificaciones_asistencia(asistencia_id);
+

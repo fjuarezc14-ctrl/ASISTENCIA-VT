@@ -344,6 +344,16 @@
 
             <!-- VISTA 4: FALTAS Y TARDANZAS -->
             <div id="vista-incidencias" class="hidden">
+                <div class="flex justify-between items-center mb-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-base">Incidencias y Puntualidad de Hoy</h3>
+                        <p class="text-xs text-gray-500">Monitoreo en tiempo real de ingresos y ausencias</p>
+                    </div>
+                    <button onclick="abrirModalNuevaJustificacion()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition active:scale-95">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Conceder Tolerancia / Justificación
+                    </button>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <!-- Faltas -->
                     <div class="bg-rose-50 border border-rose-100 p-6 rounded-xl flex flex-col">
@@ -373,23 +383,31 @@
             <!-- VISTA 5: VACACIONES Y PERMISOS -->
             <div id="vista-permisos" class="hidden">
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h4 class="font-bold text-gray-800 text-lg">Solicitudes Pendientes</h4>
-                        <button onclick="abrirModalSolicitud()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition">
-                            <i data-lucide="plus" class="w-4 h-4"></i> Nueva Solicitud
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div>
+                            <h4 class="font-bold text-gray-900 text-lg flex items-center gap-2">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-blue-600"></i>
+                                <span>Justificaciones y Tolerancias de Gerencia</span>
+                            </h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Control directo de tardanzas justificadas, tolerancias previas concedidas y permisos autorizados.</p>
+                        </div>
+                        <button onclick="abrirModalNuevaJustificacion()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm flex items-center gap-2 transition active:scale-95 shrink-0">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Conceder Tolerancia / Justificación
                         </button>
                     </div>
-                    <div id="contenedor-solicitudes" class="space-y-4">
-                        <!-- Aquí se agregarán las solicitudes dinámicamente -->
-                        <div class="p-4 border border-gray-200 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-blue-300 transition">
-                            <div>
-                                <p class="font-semibold text-gray-900">Ana Lucía Torres <span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full ml-2">Vacaciones</span></p>
-                                <p class="text-sm text-gray-500 mt-1">Del 15 de Oct al 30 de Oct (15 días)</p>
-                            </div>
-                            <div class="flex gap-2 w-full md:w-auto">
-                                <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-lg text-sm font-medium transition">Rechazar</button>
-                                <button onclick="this.parentElement.parentElement.remove()" class="flex-1 md:flex-none text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-medium transition">Aprobar</button>
-                            </div>
+
+                    <!-- Filtros por tipo -->
+                    <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-100 pb-3">
+                        <button onclick="filtrarJustificaciones('TODAS')" id="btn-filtro-just-TODAS" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs transition">Todas</button>
+                        <button onclick="filtrarJustificaciones('TARDANZA_JUSTIFICADA')" id="btn-filtro-just-TARDANZA_JUSTIFICADA" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition">Tardanzas Justificadas</button>
+                        <button onclick="filtrarJustificaciones('TOLERANCIA_PREVIA')" id="btn-filtro-just-TOLERANCIA_PREVIA" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition">Tolerancias Previas</button>
+                        <button onclick="filtrarJustificaciones('PERMISOS')" id="btn-filtro-just-PERMISOS" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition">Permisos / Vacaciones</button>
+                    </div>
+
+                    <div id="contenedor-justificaciones" class="space-y-3">
+                        <div class="p-8 text-center text-gray-400">
+                            <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                            Cargando justificaciones y tolerancias...
                         </div>
                     </div>
                 </div>
@@ -627,43 +645,60 @@
         </div>
     </div>
 
-    <!-- MODAL: NUEVA SOLICITUD DE PERMISOS -->
-    <div id="modal-solicitud" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div class="flex justify-between items-center p-5 border-b border-gray-100">
-                <h3 class="font-bold text-lg text-gray-900">Registrar Nueva Solicitud</h3>
-                <button onclick="cerrarModalSolicitud()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <!-- MODAL: CONCEDER TOLERANCIA / JUSTIFICACIÓN DE GERENCIA -->
+    <div id="modal-solicitud" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 bg-slate-900 text-white">
+                <div>
+                    <h3 id="modal-solicitud-titulo" class="font-bold text-base text-white flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-blue-400"></i>
+                        <span>Autorización de Gerencia</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Conceder tolerancia o justificar tardanza</p>
+                </div>
+                <button onclick="cerrarModalSolicitud()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <form onsubmit="procesarFormularioPermiso(event)" class="p-5 space-y-4">
+            <form onsubmit="procesarGuardarJustificacion(event)" class="p-6 space-y-4">
+                <input type="hidden" id="just-asistencia-id" value="">
+                
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
-                    <select id="empleado-solicitud" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-sm bg-white">
-                        <option value="Juan Pérez">Juan Pérez</option>
-                        <option value="María López">María López</option>
-                        <option value="Carlos Mendoza">Carlos Mendoza</option>
+                    <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Colaborador</label>
+                    <select id="just-empleado-id" required class="w-full p-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                        <!-- Poblado dinámicamente -->
                     </select>
                 </div>
+
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Solicitud</label>
-                    <select id="tipo-solicitud" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:border-blue-500 text-sm bg-white">
-                        <option value="Vacaciones">Vacaciones</option>
-                        <option value="Descanso Médico">Descanso Médico</option>
-                        <option value="Permiso Personal">Permiso Personal</option>
+                    <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Tipo de Autorización</label>
+                    <select id="just-tipo" onchange="cambiarTipoJustificacion()" required class="w-full p-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                        <option value="TARDANZA_JUSTIFICADA">Tardanza Justificada</option>
+                        <option value="TOLERANCIA_PREVIA">Tolerancia Previa de Llegada</option>
+                        <option value="PERMISO_DIA">Permiso de Día Completo</option>
+                        <option value="VACACIONES">Vacaciones</option>
                     </select>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-                        <input type="date" id="fecha-inicio" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-sm">
+                        <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Fecha</label>
+                        <input type="date" id="just-fecha" required class="w-full p-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-                        <input type="date" id="fecha-fin" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-sm">
+                    <div id="campo-hora-tolerancia">
+                        <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Hora Tolerada</label>
+                        <input type="time" id="just-hora-tolerancia" placeholder="09:30" class="w-full p-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium">
                     </div>
                 </div>
-                <div class="pt-4 border-t border-gray-100 flex gap-3">
-                    <button type="button" onclick="cerrarModalSolicitud()" class="flex-1 bg-gray-100 text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
-                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 transition text-white font-medium py-2.5 rounded-lg shadow-sm">Generar Solicitud</button>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-600 mb-1.5 tracking-wider">Motivo / Observación</label>
+                    <input type="text" id="just-motivo" placeholder="Autorizado por Gerencia" value="Autorizado por Gerencia" class="w-full p-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+
+                <div class="pt-3 border-t border-gray-100 flex gap-3">
+                    <button type="button" onclick="cerrarModalSolicitud()" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition">Cancelar</button>
+                    <button type="submit" id="btn-guardar-justificacion" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition text-sm active:scale-95">
+                        <i data-lucide="check" class="w-4 h-4"></i> Guardar Autorización
+                    </button>
                 </div>
             </form>
         </div>
@@ -869,7 +904,7 @@
                 'documentos': { t: 'Archivos y Expedientes', s: 'Gestión de CV, DNI escaneado y recibos de servicios' },
                 'asistencias': { t: 'Reporte de Asistencias', s: 'Control detallado de ingresos y salidas con horas calculadas' },
                 'incidencias': { t: 'Faltas y Tardanzas', s: 'Monitoreo en vivo de inasistencias y tiempos de retraso' },
-                'permisos': { t: 'Vacaciones y Permisos', s: 'Gestión de solicitudes y descansos médicos' },
+                'permisos': { t: 'Justificaciones y Tolerancias', s: 'Control directo de tardanzas justificadas, tolerancias previas y permisos autorizados' },
                 'reportes': { t: 'Exportar Reportes', s: 'Filtra y exporta datos a Excel por colaborador y fechas' }
             };
             if (titulos[vistaDestino]) {
@@ -883,6 +918,8 @@
                 cargarAsistencias();
             } else if (vistaDestino === 'inicio' || vistaDestino === 'incidencias') {
                 cargarDashboardMetricas();
+            } else if (vistaDestino === 'permisos') {
+                cargarJustificaciones();
             } else if (vistaDestino === 'reportes') {
                 popularSelectoresReportes();
             }
@@ -1387,6 +1424,13 @@
                     } else {
                         faltasLista.innerHTML = data.inasistencias_lista.map(emp => {
                             const iniciales = emp.nombre.split(' ').map(n => n[0]).slice(0, 2).join('');
+                            let estadoBadge = '<span class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">Sin Entrada</span>';
+                            if (emp.tolerancia) {
+                                estadoBadge = `<span class="text-[10px] font-bold text-sky-800 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full">Tolerancia ${emp.tolerancia}</span>`;
+                            } else if (emp.en_permiso) {
+                                estadoBadge = `<span class="text-[10px] font-bold text-purple-800 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-full">Permiso / Vacaciones</span>`;
+                            }
+
                             return `
                                 <li class="flex items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-rose-200 shadow-sm">
                                     <div class="w-8 h-8 rounded-full bg-rose-200 text-rose-800 flex items-center justify-center font-bold text-xs shrink-0">${iniciales}</div>
@@ -1394,7 +1438,12 @@
                                         <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">${emp.nombre}</p>
                                         <p class="text-[11px] text-rose-600 font-medium">${emp.area} &bull; Turno: ${emp.turno}</p>
                                     </div>
-                                    <span class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">Sin Entrada</span>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        ${estadoBadge}
+                                        <button onclick="abrirModalToleranciaEmpleado(${emp.empleado_id}, '${(emp.nombre || '').replace(/'/g, "\\'")}')" title="Conceder Tolerancia" class="text-xs text-blue-600 hover:text-blue-800 p-1">
+                                            <i data-lucide="clock" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
                                 </li>
                             `;
                         }).join('');
@@ -1412,14 +1461,28 @@
                     } else {
                         tardanzasLista.innerHTML = data.tardanzas_lista.map(t => {
                             const iniciales = t.nombre.split(' ').map(n => n[0]).slice(0, 2).join('');
+                            let botonAccion = '';
+                            let badgePuntualidad = '';
+
+                            if (t.justificado) {
+                                badgePuntualidad = `<span class="text-xs font-bold text-sky-800 bg-sky-100 border border-sky-200 px-2.5 py-0.5 rounded-lg shrink-0">Justificada</span>`;
+                                botonAccion = `<button onclick="revocarJustificacion(${t.justificacion_id})" title="Revocar justificación" class="text-xs text-rose-500 hover:text-rose-700 p-1"><i data-lucide="undo-2" class="w-4 h-4"></i></button>`;
+                            } else {
+                                badgePuntualidad = `<span class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-lg shrink-0">+${t.minutos_retraso} min</span>`;
+                                botonAccion = `<button onclick="abrirModalJustificarTardanza(${t.asistencia_id || "null"}, ${t.empleado_id}, '${(t.nombre || '').replace(/'/g, "\\'")}')" class="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-md transition active:scale-95 shrink-0">Justificar</button>`;
+                            }
+
                             return `
-                                <li class="flex items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-amber-200 shadow-sm">
-                                    <div class="w-8 h-8 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">${iniciales}</div>
+                                <li class="flex items-center gap-3 bg-white/80 p-2.5 rounded-xl border ${t.justificado ? 'border-sky-200 bg-sky-50/40' : 'border-amber-200'} shadow-sm">
+                                    <div class="w-8 h-8 rounded-full ${t.justificado ? 'bg-sky-200 text-sky-800' : 'bg-amber-200 text-amber-800'} flex items-center justify-center font-bold text-xs shrink-0">${iniciales}</div>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">${t.nombre}</p>
-                                        <p class="text-[11px] text-gray-500 font-medium">${t.area} &bull; Ingreso: ${t.hora_ingreso}</p>
+                                        <p class="text-[11px] text-gray-500 font-medium">${t.area} &bull; Ingreso: ${t.hora_ingreso} ${t.justificado && t.motivo_justificacion ? `&bull; <span class="text-sky-700 italic">${t.motivo_justificacion}</span>` : ''}</p>
                                     </div>
-                                    <span class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-lg shrink-0">+${t.minutos_retraso} min</span>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        ${badgePuntualidad}
+                                        ${botonAccion}
+                                    </div>
                                 </li>
                             `;
                         }).join('');
@@ -1513,7 +1576,11 @@
                     const difMin = minMarc - minPactados;
 
                     if (difMin > 5) {
-                        puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
+                        if (reg.justificacion_id) {
+                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200" title="${reg.motivo_justificacion || 'Autorizado por Gerencia'}">Tardanza Justificada</span>`;
+                        } else {
+                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
+                        }
                     } else {
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
                     }
@@ -1704,6 +1771,262 @@
                 console.error("Error al exportar reporte contable a Excel:", err);
                 mostrarToast('error', 'No se pudo generar el archivo Excel.');
             }
+        }
+
+        // ==========================================================
+        // 4. MÓDULO DE JUSTIFICACIONES Y TOLERANCIAS DE GERENCIA
+        // ==========================================================
+        let listaJustificacionesCache = [];
+        let filtroJustificacionActual = 'TODAS';
+
+        function popularSelectoresJustificaciones() {
+            const selectEmp = document.getElementById('just-empleado-id');
+            if (!selectEmp) return;
+            selectEmp.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>';
+            if (listaEmpleadosAdmin && listaEmpleadosAdmin.length > 0) {
+                listaEmpleadosAdmin.forEach(emp => {
+                    selectEmp.innerHTML += `<option value="${emp.id}">${emp.nombre_completo} (${emp.area || 'General'})</option>`;
+                });
+            }
+        }
+
+        function cambiarTipoJustificacion() {
+            const tipo = document.getElementById('just-tipo')?.value;
+            const campoHora = document.getElementById('campo-hora-tolerancia');
+            if (campoHora) {
+                if (tipo === 'TOLERANCIA_PREVIA' || tipo === 'TARDANZA_JUSTIFICADA') {
+                    campoHora.classList.remove('hidden');
+                } else {
+                    campoHora.classList.add('hidden');
+                }
+            }
+        }
+
+        function abrirModalNuevaJustificacion() {
+            popularSelectoresJustificaciones();
+            document.getElementById('just-asistencia-id').value = '';
+            document.getElementById('just-tipo').value = 'TARDANZA_JUSTIFICADA';
+            document.getElementById('just-motivo').value = 'Autorizado por Gerencia';
+            
+            const hoyLima = new Date(Date.now() - (5 * 60 * 60 * 1000));
+            document.getElementById('just-fecha').value = hoyLima.toISOString().split('T')[0];
+            document.getElementById('just-hora-tolerancia').value = '09:30';
+            
+            document.getElementById('modal-solicitud-titulo').innerHTML = `
+                <i data-lucide="shield-check" class="w-5 h-5 text-blue-400"></i>
+                <span>Conceder Tolerancia / Justificación</span>
+            `;
+            cambiarTipoJustificacion();
+            document.getElementById('modal-solicitud').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function abrirModalJustificarTardanza(asistenciaId, empleadoId, nombre) {
+            popularSelectoresJustificaciones();
+            document.getElementById('just-asistencia-id').value = asistenciaId || '';
+            document.getElementById('just-empleado-id').value = empleadoId;
+            document.getElementById('just-tipo').value = 'TARDANZA_JUSTIFICADA';
+            document.getElementById('just-motivo').value = 'Autorizado por Gerencia';
+
+            const hoyLima = new Date(Date.now() - (5 * 60 * 60 * 1000));
+            document.getElementById('just-fecha').value = hoyLima.toISOString().split('T')[0];
+
+            document.getElementById('modal-solicitud-titulo').innerHTML = `
+                <i data-lucide="shield-check" class="w-5 h-5 text-blue-400"></i>
+                <span>Justificar Tardanza de ${nombre}</span>
+            `;
+            cambiarTipoJustificacion();
+            document.getElementById('modal-solicitud').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function abrirModalToleranciaEmpleado(empleadoId, nombre) {
+            popularSelectoresJustificaciones();
+            document.getElementById('just-asistencia-id').value = '';
+            document.getElementById('just-empleado-id').value = empleadoId;
+            document.getElementById('just-tipo').value = 'TOLERANCIA_PREVIA';
+            document.getElementById('just-motivo').value = 'Autorizado por Gerencia';
+
+            const hoyLima = new Date(Date.now() - (5 * 60 * 60 * 1000));
+            document.getElementById('just-fecha').value = hoyLima.toISOString().split('T')[0];
+            document.getElementById('just-hora-tolerancia').value = '09:30';
+
+            document.getElementById('modal-solicitud-titulo').innerHTML = `
+                <i data-lucide="clock" class="w-5 h-5 text-blue-400"></i>
+                <span>Conceder Tolerancia a ${nombre}</span>
+            `;
+            cambiarTipoJustificacion();
+            document.getElementById('modal-solicitud').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function cerrarModalSolicitud() {
+            const modal = document.getElementById('modal-solicitud');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function procesarGuardarJustificacion(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-guardar-justificacion');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Guardando...';
+
+            const payload = {
+                empleado_id: document.getElementById('just-empleado-id').value,
+                asistencia_id: document.getElementById('just-asistencia-id').value || null,
+                tipo: document.getElementById('just-tipo').value,
+                fecha: document.getElementById('just-fecha').value,
+                hora_tolerancia: document.getElementById('just-hora-tolerancia').value || null,
+                motivo: document.getElementById('just-motivo').value.trim() || 'Autorizado por Gerencia'
+            };
+
+            try {
+                const res = await authFetch('/api/justificaciones', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    mostrarToast('success', data.mensaje || 'Autorización guardada con éxito.');
+                    cerrarModalSolicitud();
+                    cargarDashboardMetricas();
+                    cargarAsistencias();
+                    cargarJustificaciones();
+                } else {
+                    mostrarToast('error', data.error || 'Error al registrar autorización.');
+                }
+            } catch (err) {
+                console.error("Error al guardar justificación:", err);
+                mostrarToast('error', 'Error al procesar con el servidor.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Guardar Autorización';
+                lucide.createIcons();
+            }
+        }
+
+        async function revocarJustificacion(id) {
+            if (!confirm('¿Desea revocar esta justificación / tolerancia de Gerencia?')) return;
+            try {
+                const res = await authFetch(`/api/justificaciones/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    mostrarToast('success', 'Justificación revocada.');
+                    cargarDashboardMetricas();
+                    cargarAsistencias();
+                    cargarJustificaciones();
+                } else {
+                    mostrarToast('error', 'No se pudo revocar la justificación.');
+                }
+            } catch (err) {
+                console.error("Error al revocar justificación:", err);
+                mostrarToast('error', 'Error de conexión.');
+            }
+        }
+
+        async function cargarJustificaciones() {
+            const cont = document.getElementById('contenedor-justificaciones');
+            if (cont) {
+                cont.innerHTML = `
+                    <div class="p-8 text-center text-gray-400">
+                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                        Cargando autorizaciones...
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+
+            try {
+                const res = await authFetch('/api/justificaciones');
+                if (!res.ok) return;
+                listaJustificacionesCache = await res.json();
+                renderizarJustificaciones(listaJustificacionesCache);
+            } catch (err) {
+                console.error("Error al cargar justificaciones:", err);
+                if (cont) cont.innerHTML = '<div class="p-6 text-center text-rose-500 font-medium">Error al cargar autorizaciones.</div>';
+            }
+        }
+
+        function filtrarJustificaciones(tipo) {
+            filtroJustificacionActual = tipo;
+            ['TODAS', 'TARDANZA_JUSTIFICADA', 'TOLERANCIA_PREVIA', 'PERMISOS'].forEach(t => {
+                const btn = document.getElementById('btn-filtro-just-' + t);
+                if (btn) {
+                    if (t === tipo) {
+                        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs transition';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 transition';
+                    }
+                }
+            });
+
+            if (tipo === 'TODAS') {
+                renderizarJustificaciones(listaJustificacionesCache);
+            } else if (tipo === 'PERMISOS') {
+                renderizarJustificaciones(listaJustificacionesCache.filter(j => j.tipo === 'PERMISO_DIA' || j.tipo === 'VACACIONES'));
+            } else {
+                renderizarJustificaciones(listaJustificacionesCache.filter(j => j.tipo === tipo));
+            }
+        }
+
+        function renderizarJustificaciones(lista) {
+            const cont = document.getElementById('contenedor-justificaciones');
+            if (!cont) return;
+
+            if (!lista || lista.length === 0) {
+                cont.innerHTML = `
+                    <div class="p-10 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                        <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
+                        <p class="text-sm font-semibold text-gray-600">No hay justificaciones o tolerancias registradas.</p>
+                        <p class="text-xs text-gray-400 mt-1">Usa el botón "+ Conceder Tolerancia / Justificación" para autorizar una excepción.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            cont.innerHTML = lista.map(j => {
+                const fechaStr = j.fecha ? j.fecha.slice(0, 10) : '';
+
+                let badgeTipo = '';
+                let detalleTexto = '';
+                if (j.tipo === 'TARDANZA_JUSTIFICADA') {
+                    badgeTipo = '<span class="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-1 rounded-lg border border-sky-200">Tardanza Justificada</span>';
+                    detalleTexto = `Fecha: <strong>${fechaStr}</strong>`;
+                } else if (j.tipo === 'TOLERANCIA_PREVIA') {
+                    badgeTipo = '<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-lg border border-blue-200">Tolerancia Previa</span>';
+                    detalleTexto = `Fecha: <strong>${fechaStr}</strong> &bull; Llegada tolerada hasta: <strong class="text-blue-700">${j.hora_tolerancia || '09:30 AM'}</strong>`;
+                } else if (j.tipo === 'VACACIONES') {
+                    badgeTipo = '<span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-lg border border-emerald-200">Vacaciones</span>';
+                    detalleTexto = `Fecha: <strong>${fechaStr}</strong>`;
+                } else {
+                    badgeTipo = '<span class="bg-purple-100 text-purple-800 text-xs font-bold px-2.5 py-1 rounded-lg border border-purple-200">Permiso de Día</span>';
+                    detalleTexto = `Fecha: <strong>${fechaStr}</strong>`;
+                }
+
+                return `
+                    <div class="p-4 bg-white border border-gray-200 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-blue-300 transition shadow-xs">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                <h5 class="font-bold text-gray-900 text-sm sm:text-base">${j.nombre_completo}</h5>
+                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded font-medium">${j.area || 'General'}</span>
+                                ${badgeTipo}
+                            </div>
+                            <p class="text-xs text-gray-500">${detalleTexto}</p>
+                            <p class="text-xs text-gray-700 mt-1 font-medium italic"><i data-lucide="message-square" class="w-3.5 h-3.5 inline text-gray-400 mr-1"></i> "${j.motivo || 'Autorizado por Gerencia'}"</p>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <span class="text-[11px] text-gray-400 font-medium hidden sm:inline">Por: ${j.autorizado_por || 'Gerencia'}</span>
+                            <button onclick="revocarJustificacion(${j.id})" title="Revocar autorización" class="text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 active:scale-95">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Revocar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
         }
         
         lucide.createIcons();
