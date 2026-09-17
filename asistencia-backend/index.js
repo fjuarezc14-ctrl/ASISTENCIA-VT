@@ -111,7 +111,7 @@ app.get('/api/empleados/admin', verificarAdmin, async (req, res) => {
     try {
         const query = `
             SELECT e.id, e.nombre_completo, 
-                   COALESCE(e.area, 'General') AS area,
+                   COALESCE(e.area, 'Desarrollo de Software') AS area,
                    COALESCE(e.dias_laborables, 'Lun, Mar, Mié, Jue, Vie') AS dias_laborables,
                    COALESCE(e.hora_ingreso, '08:00') AS hora_ingreso,
                    COALESCE(e.hora_salida, '17:00') AS hora_salida,
@@ -177,7 +177,7 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
             nombre_completo.trim(), 
             hashedPin, 
             JSON.stringify(face_descriptor),
-            area || 'General',
+            area || 'Desarrollo de Software',
             dias_laborables || 'Lun, Mar, Mié, Jue, Vie',
             hora_ingreso || '08:00',
             hora_salida || '17:00'

@@ -12,10 +12,11 @@
 
     <!-- SIDEBAR -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex">
-        <div class="p-6 border-b border-gray-100">
+        <div class="p-6 border-b border-gray-100 flex items-center justify-between">
             <h1 class="text-2xl font-black text-gray-900 flex items-center gap-2">
                 <span class="text-blue-600">VT</span> VALETEC
             </h1>
+            <span class="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full border border-blue-200">v2.2</span>
         </div>
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto" id="menu-lateral">
             <p class="text-xs font-bold text-gray-400 mb-4 px-2 uppercase tracking-wider">Gestión HR</p>
@@ -117,18 +118,26 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-gray-400"></i> Distribución del Personal</h3>
-                        <div class="space-y-5">
+                        <div class="space-y-4" id="distribucion-personal-contenedor">
                             <div>
-                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Operaciones Mina</span><span class="font-bold text-gray-900">60</span></div>
-                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full" style="width: 40%"></div></div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Desarrollo de Software</span><span class="font-bold text-gray-900" id="dist-dev">0</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-blue-600 h-2 rounded-full" id="dist-bar-dev" style="width: 0%"></div></div>
                             </div>
                             <div>
-                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Planta Concentradora</span><span class="font-bold text-gray-900">45</span></div>
-                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-indigo-500 h-2.5 rounded-full" style="width: 30%"></div></div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Proyectos</span><span class="font-bold text-gray-900" id="dist-proy">0</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-indigo-500 h-2 rounded-full" id="dist-bar-proy" style="width: 0%"></div></div>
                             </div>
                             <div>
-                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Mantenimiento</span><span class="font-bold text-gray-900">25</span></div>
-                                <div class="w-full bg-gray-100 rounded-full h-2.5"><div class="bg-emerald-500 h-2.5 rounded-full" style="width: 16%"></div></div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Recursos Humanos</span><span class="font-bold text-gray-900" id="dist-rrhh">0</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-emerald-500 h-2 rounded-full" id="dist-bar-rrhh" style="width: 0%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Atención al Cliente</span><span class="font-bold text-gray-900" id="dist-atc">0</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-amber-500 h-2 rounded-full" id="dist-bar-atc" style="width: 0%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">Gerencia</span><span class="font-bold text-gray-900" id="dist-ger">0</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-purple-500 h-2 rounded-full" id="dist-bar-ger" style="width: 0%"></div></div>
                             </div>
                         </div>
                     </div>
@@ -460,12 +469,11 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Área / Departamento</label>
                     <select id="reg-area" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
-                        <option value="Operaciones Mina">Operaciones Mina</option>
-                        <option value="Planta Concentradora">Planta Concentradora</option>
-                        <option value="Mantenimiento">Mantenimiento</option>
-                        <option value="Administración / Finanzas">Administración / Finanzas</option>
-                        <option value="Ventas / Comercial">Ventas / Comercial</option>
-                        <option value="Logística">Logística</option>
+                        <option value="Desarrollo de Software">Desarrollo de Software</option>
+                        <option value="Proyectos">Proyectos</option>
+                        <option value="Recursos Humanos">Recursos Humanos</option>
+                        <option value="Atención al Cliente">Atención al Cliente</option>
+                        <option value="Gerencia">Gerencia</option>
                     </select>
                 </div>
 
@@ -812,9 +820,46 @@
                 if (totalPlantilla) totalPlantilla.textContent = listaEmpleadosAdmin.length;
 
                 renderizarTablaColaboradores(listaEmpleadosAdmin);
+                actualizarDistribucionAreas(listaEmpleadosAdmin);
             } catch (err) {
                 console.error("Error al cargar colaboradores:", err);
             }
+        }
+
+        function actualizarDistribucionAreas(empleados) {
+            const counts = {
+                'Desarrollo de Software': 0,
+                'Proyectos': 0,
+                'Recursos Humanos': 0,
+                'Atención al Cliente': 0,
+                'Gerencia': 0
+            };
+            const total = empleados.length || 1;
+            empleados.forEach(emp => {
+                const a = emp.area || 'Desarrollo de Software';
+                if (counts[a] !== undefined) {
+                    counts[a]++;
+                } else {
+                    counts['Desarrollo de Software']++;
+                }
+            });
+
+            const mapping = [
+                { key: 'Desarrollo de Software', idCount: 'dist-dev', idBar: 'dist-bar-dev' },
+                { key: 'Proyectos', idCount: 'dist-proy', idBar: 'dist-bar-proy' },
+                { key: 'Recursos Humanos', idCount: 'dist-rrhh', idBar: 'dist-bar-rrhh' },
+                { key: 'Atención al Cliente', idCount: 'dist-atc', idBar: 'dist-bar-atc' },
+                { key: 'Gerencia', idCount: 'dist-ger', idBar: 'dist-bar-ger' }
+            ];
+
+            mapping.forEach(m => {
+                const elCount = document.getElementById(m.idCount);
+                const elBar = document.getElementById(m.idBar);
+                const count = counts[m.key] || 0;
+                const pct = Math.round((count / total) * 100);
+                if (elCount) elCount.textContent = count;
+                if (elBar) elBar.style.width = `${pct}%`;
+            });
         }
 
         function renderizarTablaColaboradores(lista) {

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS empleados (
     nombre_completo VARCHAR(150) NOT NULL,
     codigo_pin VARCHAR(100) NOT NULL,
     face_descriptor JSONB NOT NULL,
-    area VARCHAR(100) DEFAULT 'General',
+    area VARCHAR(100) DEFAULT 'Desarrollo de Software',
     dias_laborables VARCHAR(150) DEFAULT 'Lun, Mar, Mié, Jue, Vie',
     hora_ingreso VARCHAR(10) DEFAULT '08:00',
     hora_salida VARCHAR(10) DEFAULT '17:00',
