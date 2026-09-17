@@ -96,21 +96,21 @@
                         <div class="bg-emerald-50 p-3 rounded-lg text-emerald-600"><i data-lucide="user-check" class="w-6 h-6"></i></div>
                         <div>
                             <p class="text-sm font-semibold text-gray-500">Presentes Hoy</p>
-                            <p class="text-2xl font-bold text-gray-900">142</p>
+                            <p class="text-2xl font-bold text-gray-900" id="card-presentes-hoy">0</p>
                         </div>
                     </div>
                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-amber-500">
                         <div class="bg-amber-50 p-3 rounded-lg text-amber-600"><i data-lucide="clock" class="w-6 h-6"></i></div>
                         <div>
                             <p class="text-sm font-semibold text-gray-500">Tardanzas Hoy</p>
-                            <p class="text-2xl font-bold text-gray-900">1</p>
+                            <p class="text-2xl font-bold text-gray-900" id="card-tardanzas-hoy">0</p>
                         </div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-purple-500">
-                        <div class="bg-purple-50 p-3 rounded-lg text-purple-600"><i data-lucide="plane" class="w-6 h-6"></i></div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-rose-500">
+                        <div class="bg-rose-50 p-3 rounded-lg text-rose-600"><i data-lucide="user-x" class="w-6 h-6"></i></div>
                         <div>
-                            <p class="text-sm font-semibold text-gray-500">En Permiso/Vac</p>
-                            <p class="text-2xl font-bold text-gray-900">5</p>
+                            <p class="text-sm font-semibold text-gray-500">Inasistencias Hoy</p>
+                            <p class="text-2xl font-bold text-gray-900" id="card-inasistencias-hoy">0</p>
                         </div>
                     </div>
                 </div>
@@ -143,17 +143,8 @@
                     </div>
                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-gray-400"></i> Actividad Reciente</h3>
-                        <div class="space-y-4">
-                            <div class="flex items-center gap-4">
-                                <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                <div class="text-sm"><span class="font-medium">Juan Pérez</span> marcó ingreso en <span class="font-medium text-blue-600">Garita Principal</span></div>
-                                <div class="ml-auto text-xs text-gray-400">Hace 2 min</div>
-                            </div>
-                            <div class="flex items-center gap-4">
-                                <div class="w-2 h-2 rounded-full bg-amber-500"></div>
-                                <div class="text-sm"><span class="font-medium">María López</span> marcó ingreso con retraso</div>
-                                <div class="ml-auto text-xs text-gray-400">Hace 15 min</div>
-                            </div>
+                        <div class="space-y-4" id="contenedor-actividad-reciente">
+                            <p class="text-xs text-gray-400 text-center py-6">Cargando actividad...</p>
                         </div>
                     </div>
                 </div>
@@ -293,25 +284,59 @@
             <!-- VISTA 3: ASISTENCIAS -->
             <div id="vista-asistencias" class="hidden">
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Buscar Trabajador</label>
-                    <div class="relative w-full md:w-1/2">
-                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
-                        <input type="text" id="buscador-asistencia" placeholder="Escribe el nombre o ID..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <!-- Buscador -->
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Buscar Trabajador</label>
+                            <div class="relative">
+                                <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+                                <input type="text" id="buscador-asistencia" oninput="filtrarTablaAsistencias()" placeholder="Escribe nombre o área..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm bg-gray-50 focus:bg-white transition">
+                            </div>
+                        </div>
+
+                        <!-- Filtro Periodo -->
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Periodo</label>
+                            <select id="filtro-periodo-asistencia" onchange="cargarAsistencias()" class="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm bg-white font-medium">
+                                <option value="DIA" selected>Solo Hoy</option>
+                                <option value="SEMANA">Esta Semana</option>
+                                <option value="MES">Este Mes</option>
+                                <option value="TODOS">Todo el Historial</option>
+                            </select>
+                        </div>
+
+                        <!-- Botón Exportar Excel/CSV -->
+                        <div>
+                            <button onclick="exportarAsistenciasCSV()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition active:scale-95">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar CSV
+                            </button>
+                        </div>
                     </div>
                 </div>
+
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm whitespace-nowrap">
-                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs">
                                 <tr>
-                                    <th class="px-6 py-4 font-semibold">ID</th>
-                                    <th class="px-6 py-4 font-semibold">Empleado</th>
-                                    <th class="px-6 py-4 font-semibold">Fecha / Hora</th>
-                                    <th class="px-6 py-4 font-semibold">Estado</th>
-                                    <th class="px-6 py-4 font-semibold">Método</th>
+                                    <th class="px-5 py-3.5 font-semibold">ID</th>
+                                    <th class="px-5 py-3.5 font-semibold">Empleado</th>
+                                    <th class="px-5 py-3.5 font-semibold">Área</th>
+                                    <th class="px-5 py-3.5 font-semibold">Fecha y Hora</th>
+                                    <th class="px-5 py-3.5 font-semibold">Tipo</th>
+                                    <th class="px-5 py-3.5 font-semibold">Tiempo Efectivo</th>
+                                    <th class="px-5 py-3.5 font-semibold">Puntualidad</th>
+                                    <th class="px-5 py-3.5 font-semibold">Método</th>
                                 </tr>
                             </thead>
-                            <tbody id="tabla-asistencias-body" class="divide-y divide-gray-100"></tbody>
+                            <tbody id="tabla-asistencias-body" class="divide-y divide-gray-100 text-xs sm:text-sm">
+                                <tr>
+                                    <td colspan="8" class="p-8 text-center text-gray-400">
+                                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                                        Cargando asistencias...
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -324,16 +349,10 @@
                     <div class="bg-rose-50 border border-rose-100 p-6 rounded-xl flex flex-col">
                         <div class="flex justify-between items-start mb-4">
                             <h3 class="text-rose-800 font-bold text-lg">Inasistencias de Hoy</h3>
-                            <span class="bg-rose-200 text-rose-800 font-black text-xl px-3 py-1 rounded-lg">3</span>
+                            <span id="incidencias-faltas-count" class="bg-rose-200 text-rose-800 font-black text-xl px-3 py-1 rounded-lg">0</span>
                         </div>
-                        <ul class="space-y-3">
-                            <li class="flex items-center gap-3 bg-white/60 p-2 rounded-lg border border-rose-100">
-                                <div class="w-8 h-8 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center font-bold text-xs">CM</div>
-                                <div>
-                                    <p class="text-sm font-semibold text-gray-900">Carlos Mendoza</p>
-                                    <p class="text-xs text-rose-600">Turno: 08:00 AM</p>
-                                </div>
-                            </li>
+                        <ul class="space-y-3" id="incidencias-faltas-lista">
+                            <li class="text-xs text-rose-600 italic">No hay inasistencias registradas.</li>
                         </ul>
                     </div>
                     <!-- Tardanzas -->
@@ -342,17 +361,10 @@
                             <div>
                                 <h3 class="text-amber-800 font-bold text-lg">Tardanzas Registradas</h3>
                             </div>
-                            <span class="bg-amber-200 text-amber-800 font-black text-xl px-3 py-1 rounded-lg">1</span>
+                            <span id="incidencias-tardanzas-count" class="bg-amber-200 text-amber-800 font-black text-xl px-3 py-1 rounded-lg">0</span>
                         </div>
-                        <ul class="space-y-3">
-                            <li class="flex items-center gap-3 bg-white/60 p-2 rounded-lg border border-amber-100">
-                                <div class="w-8 h-8 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center font-bold text-xs">ML</div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-semibold text-gray-900">María López</p>
-                                    <p class="text-xs text-gray-500">Ingreso: 08:12 AM</p>
-                                </div>
-                                <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded">+12 min</span>
-                            </li>
+                        <ul class="space-y-3" id="incidencias-tardanzas-lista">
+                            <li class="text-xs text-amber-600 italic">No hay tardanzas registradas hoy.</li>
                         </ul>
                     </div>
                 </div>
@@ -398,40 +410,67 @@
                         <!-- Filtro Trabajador -->
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Seleccionar Colaborador</label>
-                            <select class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                <option value="todos">Todos los Colaboradores (Reporte General)</option>
-                                <option value="1">Juan Pérez (Operaciones Mina)</option>
-                                <option value="2">María López (Mantenimiento)</option>
-                                <option value="3">Carlos Mendoza (Planta Concentradora)</option>
+                            <select id="rep-filtro-empleado" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                                <option value="TODOS">Todos los Colaboradores (Reporte General)</option>
                             </select>
                         </div>
                         <!-- Tipo de Reporte -->
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Información a Extraer</label>
-                            <select class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                                <option>Asistencia General (Ingresos y Salidas)</option>
-                                <option>Solo Faltas y Tardanzas</option>
-                                <option>Horas Extras Generadas</option>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipo de Marcación</label>
+                            <select id="rep-filtro-tipo" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                                <option value="TODOS">Todas (Entradas y Salidas)</option>
+                                <option value="INGRESO">Solo Entradas / Ingresos</option>
+                                <option value="SALIDA">Solo Salidas (con horas calculadas)</option>
                             </select>
                         </div>
                         <!-- Rango de Fechas -->
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Rango de Fechas</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Rango de Fechas (Para Contabilidad / Auditoría)</label>
                             <div class="flex items-center gap-4">
-                                <input type="date" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <input type="date" id="rep-fecha-inicio" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
                                 <span class="font-medium text-gray-400">a</span>
-                                <input type="date" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                <input type="date" id="rep-fecha-fin" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex gap-4">
-                        <button class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg">
+                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                        <button onclick="previsualizarReporte()" class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg text-sm active:scale-95">
                             <i data-lucide="search" class="w-5 h-5"></i> Previsualizar Datos
                         </button>
-                        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-green-500/30">
-                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> Exportar a Excel
+                        <button onclick="exportarReporteAvanzadoCSV()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-emerald-500/30 text-sm active:scale-95">
+                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> Exportar a Excel (CSV)
                         </button>
+                    </div>
+
+                    <!-- Contenedor Previsualización -->
+                    <div id="rep-contenedor-previsualizacion" class="hidden mt-6 border-t border-gray-100 pt-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-gray-900 text-base flex items-center gap-2">
+                                <span>Vista Previa</span>
+                                <span id="rep-badge-conteo" class="text-xs font-semibold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">0 registros</span>
+                            </h4>
+                            <div id="rep-total-horas" class="text-xs font-bold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                                Total Horas Efectivas: 0h
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl max-h-80 overflow-y-auto">
+                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 sticky top-0">
+                                    <tr>
+                                        <th class="p-3 font-semibold">ID</th>
+                                        <th class="p-3 font-semibold">Empleado</th>
+                                        <th class="p-3 font-semibold">Área</th>
+                                        <th class="p-3 font-semibold">Fecha</th>
+                                        <th class="p-3 font-semibold">Hora</th>
+                                        <th class="p-3 font-semibold">Tipo</th>
+                                        <th class="p-3 font-semibold">Tiempo Efectivo</th>
+                                        <th class="p-3 font-semibold">Método</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rep-tabla-cuerpo" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -792,6 +831,7 @@
                 .then(data => {
                     console.log("✅ Sesión HR activa como:", data.admin?.username);
                     cargarColaboradores();
+                    cargarDashboardMetricas();
                 })
                 .catch(() => {
                     mostrarModalLogin();
@@ -827,8 +867,8 @@
                 'inicio': { t: 'Panel General', s: 'Resumen del estado de la plantilla y operaciones' },
                 'colaboradores': { t: 'Gestión de Colaboradores', s: 'Administración de accesos (PIN 4 dígitos / Rostro) y horarios' },
                 'documentos': { t: 'Archivos y Expedientes', s: 'Gestión de CV, DNI escaneado y recibos de servicios' },
-                'asistencias': { t: 'Reporte de Asistencias', s: 'Control detallado de ingresos y salidas' },
-                'incidencias': { t: 'Faltas y Tardanzas', s: 'Monitoreo de inasistencias y tiempos de retraso' },
+                'asistencias': { t: 'Reporte de Asistencias', s: 'Control detallado de ingresos y salidas con horas calculadas' },
+                'incidencias': { t: 'Faltas y Tardanzas', s: 'Monitoreo en vivo de inasistencias y tiempos de retraso' },
                 'permisos': { t: 'Vacaciones y Permisos', s: 'Gestión de solicitudes y descansos médicos' },
                 'reportes': { t: 'Exportar Reportes', s: 'Filtra y exporta datos a Excel por colaborador y fechas' }
             };
@@ -839,6 +879,12 @@
 
             if (vistaDestino === 'colaboradores') {
                 cargarColaboradores();
+            } else if (vistaDestino === 'asistencias') {
+                cargarAsistencias();
+            } else if (vistaDestino === 'inicio' || vistaDestino === 'incidencias') {
+                cargarDashboardMetricas();
+            } else if (vistaDestino === 'reportes') {
+                popularSelectoresReportes();
             }
         }
 
@@ -1278,23 +1324,407 @@
             e.target.reset();
         }
 
-        // RENDERIZAR TABLA DE ASISTENCIAS (Demo)
-        const registrosAsistencia = [
-            { id: '#1042', nombre: 'Juan Pérez', hora: '08:00 AM', fecha: '06 Sep 2026', tipo: 'Ingreso', estado: 'A Tiempo', metodo: 'Rostro', icon: 'scan-face' },
-            { id: '#1043', nombre: 'María López', hora: '08:12 AM', fecha: '06 Sep 2026', tipo: 'Ingreso', estado: 'Tardanza', metodo: 'PIN', icon: 'keypad' }
-        ];
+        // ==========================================================
+        // FASE 2.3: ASISTENCIAS, DASHBOARD Y REPORTES EN TIEMPO REAL
+        // ==========================================================
+        let listaAsistenciasCache = [];
+        let listaReportesCache = [];
 
-        const tbodyAsistencias = document.getElementById('tabla-asistencias-body');
-        registrosAsistencia.forEach(reg => {
-            tbodyAsistencias.innerHTML += `
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="px-6 py-4 font-mono text-gray-500 text-xs">${reg.id}</td>
-                    <td class="px-6 py-4"><div class="font-medium text-gray-900">${reg.nombre}</div></td>
-                    <td class="px-6 py-4">${reg.hora} <span class="text-xs text-gray-400">(${reg.fecha})</span></td>
-                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-semibold ${reg.estado === 'Tardanza' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">${reg.tipo} - ${reg.estado}</span></td>
-                    <td class="px-6 py-4"><span class="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded"><i data-lucide="${reg.icon}" class="w-3.5 h-3.5"></i> ${reg.metodo}</span></td>
-                </tr>`;
-        });
+        // 1. CARGA DE MÉTRICAS DEL DASHBOARD Y RESUMEN DE INCIDENCIAS
+        async function cargarDashboardMetricas() {
+            try {
+                const res = await authFetch('/api/reportes/dashboard');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Tarjetas de Inicio
+                const cardPresentes = document.getElementById('card-presentes-hoy');
+                if (cardPresentes) cardPresentes.textContent = data.presentes_hoy;
+
+                const cardTardanzas = document.getElementById('card-tardanzas-hoy');
+                if (cardTardanzas) cardTardanzas.textContent = data.tardanzas_hoy;
+
+                const cardInasistencias = document.getElementById('card-inasistencias-hoy');
+                if (cardInasistencias) cardInasistencias.textContent = data.inasistencias_hoy;
+
+                // Contenedor de Actividad Reciente
+                const contAct = document.getElementById('contenedor-actividad-reciente');
+                if (contAct) {
+                    if (!data.actividad_reciente || data.actividad_reciente.length === 0) {
+                        contAct.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">No hay actividad registrada el día de hoy.</p>';
+                    } else {
+                        contAct.innerHTML = data.actividad_reciente.map(act => {
+                            const esIngreso = act.tipo === 'INGRESO';
+                            const colorPunto = esIngreso ? 'bg-emerald-500' : 'bg-rose-500';
+                            const badgeTipo = esIngreso 
+                                ? '<span class="text-emerald-700 bg-emerald-50 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded">Entrada</span>'
+                                : '<span class="text-rose-700 bg-rose-50 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded">Salida</span>';
+                            const horasTxt = act.horas_trabajadas ? `<span class="text-blue-600 font-bold ml-1">(${act.horas_trabajadas})</span>` : '';
+
+                            return `
+                                <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition">
+                                    <div class="w-2.5 h-2.5 rounded-full ${colorPunto} shrink-0"></div>
+                                    <div class="text-xs sm:text-sm flex-1 min-w-0">
+                                        <span class="font-bold text-gray-900">${act.nombre}</span> 
+                                        marcó ${badgeTipo} ${horasTxt}
+                                        <span class="text-gray-400 text-[11px] block sm:inline sm:ml-1">${act.area}</span>
+                                    </div>
+                                    <div class="text-[11px] font-medium text-gray-400 shrink-0 font-mono">${act.hora}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+
+                // Vista Incidencias: Inasistencias de Hoy
+                const faltasCount = document.getElementById('incidencias-faltas-count');
+                if (faltasCount) faltasCount.textContent = data.inasistencias_hoy;
+
+                const faltasLista = document.getElementById('incidencias-faltas-lista');
+                if (faltasLista) {
+                    if (!data.inasistencias_lista || data.inasistencias_lista.length === 0) {
+                        faltasLista.innerHTML = '<li class="text-xs text-emerald-600 font-semibold p-2 bg-emerald-50 rounded-lg">¡Excelente! Todo el personal asistió el día de hoy.</li>';
+                    } else {
+                        faltasLista.innerHTML = data.inasistencias_lista.map(emp => {
+                            const iniciales = emp.nombre.split(' ').map(n => n[0]).slice(0, 2).join('');
+                            return `
+                                <li class="flex items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-rose-200 shadow-sm">
+                                    <div class="w-8 h-8 rounded-full bg-rose-200 text-rose-800 flex items-center justify-center font-bold text-xs shrink-0">${iniciales}</div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">${emp.nombre}</p>
+                                        <p class="text-[11px] text-rose-600 font-medium">${emp.area} &bull; Turno: ${emp.turno}</p>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">Sin Entrada</span>
+                                </li>
+                            `;
+                        }).join('');
+                    }
+                }
+
+                // Vista Incidencias: Tardanzas Registradas
+                const tardanzasCount = document.getElementById('incidencias-tardanzas-count');
+                if (tardanzasCount) tardanzasCount.textContent = data.tardanzas_hoy;
+
+                const tardanzasLista = document.getElementById('incidencias-tardanzas-lista');
+                if (tardanzasLista) {
+                    if (!data.tardanzas_lista || data.tardanzas_lista.length === 0) {
+                        tardanzasLista.innerHTML = '<li class="text-xs text-emerald-600 font-semibold p-2 bg-emerald-50 rounded-lg">No se registraron tardanzas hoy.</li>';
+                    } else {
+                        tardanzasLista.innerHTML = data.tardanzas_lista.map(t => {
+                            const iniciales = t.nombre.split(' ').map(n => n[0]).slice(0, 2).join('');
+                            return `
+                                <li class="flex items-center gap-3 bg-white/80 p-2.5 rounded-xl border border-amber-200 shadow-sm">
+                                    <div class="w-8 h-8 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">${iniciales}</div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">${t.nombre}</p>
+                                        <p class="text-[11px] text-gray-500 font-medium">${t.area} &bull; Ingreso: ${t.hora_ingreso}</p>
+                                    </div>
+                                    <span class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-lg shrink-0">+${t.minutos_retraso} min</span>
+                                </li>
+                            `;
+                        }).join('');
+                    }
+                }
+
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Error al cargar dashboard métricas:", err);
+            }
+        }
+
+        // 2. CARGA Y RENDERIZADO DE TABLA DE ASISTENCIAS
+        async function cargarAsistencias() {
+            const selector = document.getElementById('filtro-periodo-asistencia');
+            const periodo = selector ? selector.value : 'DIA';
+            const tbody = document.getElementById('tabla-asistencias-body');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-400">
+                            <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                            Cargando asistencias...
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+            }
+
+            try {
+                const res = await authFetch(`/api/reportes?periodo=${periodo}`);
+                if (!res.ok) return;
+                listaAsistenciasCache = await res.json();
+                renderizarTablaAsistencias(listaAsistenciasCache);
+            } catch (err) {
+                console.error("Error al cargar asistencias:", err);
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-rose-500 font-semibold">
+                                Error al obtener asistencias desde el servidor.
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        function renderizarTablaAsistencias(lista) {
+            const tbody = document.getElementById('tabla-asistencias-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (!lista || lista.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-400">
+                            No se encontraron marcaciones para el periodo seleccionado.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            lista.forEach(reg => {
+                const f = new Date(reg.fecha_hora_marcacion);
+                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+                const fechaTexto = fLima.toISOString().split('T')[0];
+                const horaTexto = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                const esIngreso = reg.tipo === 'INGRESO';
+                const badgeTipo = esIngreso 
+                    ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-700">Entrada</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border border-rose-200 bg-rose-50 text-rose-700">Salida</span>`;
+
+                // Tiempo trabajado
+                let tiempoTrabajadoHtml = '<span class="text-gray-400 text-xs">-</span>';
+                if (!esIngreso && reg.horas_trabajadas) {
+                    tiempoTrabajadoHtml = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">${reg.horas_trabajadas}</span>`;
+                } else if (esIngreso) {
+                    tiempoTrabajadoHtml = `<span class="text-[11px] text-emerald-600 font-medium">Jornada iniciada</span>`;
+                }
+
+                // Puntualidad
+                let puntualidadBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Salida</span>';
+                if (esIngreso) {
+                    const horaPactada = reg.hora_ingreso || '08:00';
+                    const [hP, mP] = horaPactada.split(':').map(Number);
+                    const minPactados = hP * 60 + mP;
+                    const minMarc = fLima.getUTCHours() * 60 + fLima.getUTCMinutes();
+                    const difMin = minMarc - minPactados;
+
+                    if (difMin > 5) {
+                        puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
+                    } else {
+                        puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
+                    }
+                }
+
+                // Método
+                let iconMetodo = 'scan-face';
+                let txtMetodo = 'Rostro';
+                if (reg.metodo === 'PIN') {
+                    iconMetodo = 'keypad';
+                    txtMetodo = 'PIN';
+                } else if (reg.metodo === 'SISTEMA_AUTO') {
+                    iconMetodo = 'bot';
+                    txtMetodo = 'Auto';
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+                tr.innerHTML = `
+                    <td class="px-5 py-3.5 font-mono text-gray-400 text-xs font-bold">#${reg.id}</td>
+                    <td class="px-5 py-3.5 font-bold text-gray-900">${reg.nombre_completo}</td>
+                    <td class="px-5 py-3.5"><span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded border border-gray-200">${reg.area || 'General'}</span></td>
+                    <td class="px-5 py-3.5 font-medium text-gray-800 text-xs">${horaTexto} <span class="text-gray-400 font-mono text-[11px]">(${fechaTexto})</span></td>
+                    <td class="px-5 py-3.5">${badgeTipo}</td>
+                    <td class="px-5 py-3.5">${tiempoTrabajadoHtml}</td>
+                    <td class="px-5 py-3.5">${puntualidadBadge}</td>
+                    <td class="px-5 py-3.5">
+                        <span class="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                            <i data-lucide="${iconMetodo}" class="w-3.5 h-3.5"></i> ${txtMetodo}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        function filtrarTablaAsistencias() {
+            const query = (document.getElementById('buscador-asistencia')?.value || '').toLowerCase().trim();
+            if (!query) {
+                renderizarTablaAsistencias(listaAsistenciasCache);
+                return;
+            }
+            const filtrados = listaAsistenciasCache.filter(r => 
+                (r.nombre_completo && r.nombre_completo.toLowerCase().includes(query)) ||
+                (r.area && r.area.toLowerCase().includes(query)) ||
+                (r.id && r.id.toString().includes(query))
+            );
+            renderizarTablaAsistencias(filtrados);
+        }
+
+        function exportarAsistenciasCSV() {
+            if (!listaAsistenciasCache || listaAsistenciasCache.length === 0) {
+                mostrarToast('error', 'No hay registros de asistencia para exportar.');
+                return;
+            }
+
+            const encabezados = ['ID', 'Empleado', 'Area', 'Fecha', 'Hora', 'Tipo', 'Tiempo Efectivo', 'Metodo'];
+            const filas = listaAsistenciasCache.map(r => {
+                const f = new Date(r.fecha_hora_marcacion);
+                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+                const fecha = fLima.toISOString().split('T')[0];
+                const hora = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+                return [
+                    r.id,
+                    `"${(r.nombre_completo || '').replace(/"/g, '""')}"`,
+                    `"${(r.area || '').replace(/"/g, '""')}"`,
+                    fecha,
+                    hora,
+                    r.tipo,
+                    `"${r.horas_trabajadas || (r.tipo === 'INGRESO' ? 'En jornada' : '-')}"`,
+                    r.metodo
+                ].join(',');
+            });
+
+            const csvContent = '\uFEFF' + [encabezados.join(','), ...filas].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `asistencias_valetec_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            mostrarToast('success', 'Archivo CSV de asistencias descargado con éxito.');
+        }
+
+        // 3. GENERADOR AVANZADO DE REPORTES (VISTA REPORTES)
+        function popularSelectoresReportes() {
+            const selectEmp = document.getElementById('rep-filtro-empleado');
+            if (selectEmp && listaEmpleadosAdmin) {
+                selectEmp.innerHTML = '<option value="TODOS">Todos los Colaboradores (Reporte General)</option>';
+                listaEmpleadosAdmin.forEach(emp => {
+                    selectEmp.innerHTML += `<option value="${emp.id}">${emp.nombre_completo} (${emp.area || 'General'})</option>`;
+                });
+            }
+
+            const fInicio = document.getElementById('rep-fecha-inicio');
+            const fFin = document.getElementById('rep-fecha-fin');
+            const hoyStr = new Date().toISOString().split('T')[0];
+            if (fInicio && !fInicio.value) fInicio.value = hoyStr;
+            if (fFin && !fFin.value) fFin.value = hoyStr;
+        }
+
+        async function previsualizarReporte() {
+            const empId = document.getElementById('rep-filtro-empleado')?.value || 'TODOS';
+            const tipo = document.getElementById('rep-filtro-tipo')?.value || 'TODOS';
+            const fInicio = document.getElementById('rep-fecha-inicio')?.value;
+            const fFin = document.getElementById('rep-fecha-fin')?.value;
+
+            let url = `/api/reportes?empleado_id=${empId}&tipo=${tipo}`;
+            if (fInicio) url += `&fecha_inicio=${fInicio}`;
+            if (fFin) url += `&fecha_fin=${fFin}`;
+
+            const contPrev = document.getElementById('rep-contenedor-previsualizacion');
+            const tbody = document.getElementById('rep-tabla-cuerpo');
+            const badgeConteo = document.getElementById('rep-badge-conteo');
+            const totalHorasElem = document.getElementById('rep-total-horas');
+
+            if (contPrev) contPrev.classList.remove('hidden');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400">Consultando registros...</td></tr>';
+
+            try {
+                const res = await authFetch(url);
+                if (!res.ok) return;
+                listaReportesCache = await res.json();
+
+                if (badgeConteo) badgeConteo.textContent = `${listaReportesCache.length} registros`;
+
+                // Calcular suma de minutos netos
+                let totalMinutos = 0;
+                listaReportesCache.forEach(r => {
+                    if (r.minutos_netos) totalMinutos += Number(r.minutos_netos);
+                });
+                const totalH = Math.floor(totalMinutos / 60);
+                const totalM = totalMinutos % 60;
+                if (totalHorasElem) totalHorasElem.textContent = `Total Horas Efectivas: ${totalH}h ${totalM}m`;
+
+                if (!listaReportesCache || listaReportesCache.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400">No hay datos en el rango seleccionado.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = listaReportesCache.map(reg => {
+                    const f = new Date(reg.fecha_hora_marcacion);
+                    const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+                    const fechaTexto = fLima.toISOString().split('T')[0];
+                    const horaTexto = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                    return `
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="p-3 font-mono text-gray-400 text-xs">#${reg.id}</td>
+                            <td class="p-3 font-bold text-gray-900">${reg.nombre_completo}</td>
+                            <td class="p-3 text-gray-600">${reg.area || 'General'}</td>
+                            <td class="p-3 text-gray-700">${fechaTexto}</td>
+                            <td class="p-3 font-medium text-gray-800">${horaTexto}</td>
+                            <td class="p-3 font-semibold ${reg.tipo === 'INGRESO' ? 'text-emerald-700' : 'text-rose-700'}">${reg.tipo}</td>
+                            <td class="p-3 font-bold text-blue-700">${reg.horas_trabajadas || '-'}</td>
+                            <td class="p-3 text-gray-600">${reg.metodo}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error("Error al previsualizar reporte:", err);
+                if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-rose-500">Error al cargar datos.</td></tr>';
+            }
+        }
+
+        async function exportarReporteAvanzadoCSV() {
+            if (!listaReportesCache || listaReportesCache.length === 0) {
+                await previsualizarReporte();
+            }
+
+            if (!listaReportesCache || listaReportesCache.length === 0) {
+                mostrarToast('error', 'No hay registros en el reporte para exportar.');
+                return;
+            }
+
+            const encabezados = ['ID', 'Empleado', 'Area', 'Fecha', 'Hora', 'Tipo', 'Horas Efectivas', 'Minutos Netos', 'Metodo'];
+            const filas = listaReportesCache.map(r => {
+                const f = new Date(r.fecha_hora_marcacion);
+                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+                const fecha = fLima.toISOString().split('T')[0];
+                const hora = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+                return [
+                    r.id,
+                    `"${(r.nombre_completo || '').replace(/"/g, '""')}"`,
+                    `"${(r.area || '').replace(/"/g, '""')}"`,
+                    fecha,
+                    hora,
+                    r.tipo,
+                    `"${r.horas_trabajadas || (r.tipo === 'INGRESO' ? 'En jornada' : '-')}"`,
+                    r.minutos_netos || 0,
+                    r.metodo
+                ].join(',');
+            });
+
+            const csvContent = '\uFEFF' + [encabezados.join(','), ...filas].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `reporte_contable_valetec_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            mostrarToast('success', 'Reporte exportado exitosamente para Excel.');
+        }
+        
         lucide.createIcons();
     </script>
     <style>

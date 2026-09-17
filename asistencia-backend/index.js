@@ -379,9 +379,7 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
             const m = minutosNetos % 60;
             horasTrabajadasTexto = `${h}h ${m}m`;
 
-            const horasRefrig = Number((minutosDescuentoRefrigerio / 60).toFixed(1));
-            let txtRefrig = minutosDescuentoRefrigerio > 0 ? ` (descontando ${horasRefrig}h refrigerio)` : '';
-            mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada. Tiempo efectivo: ${horasTrabajadasTexto}${txtRefrig}.${mensajeExtra}`;
+            mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada. Tiempo efectivo de hoy: ${horasTrabajadasTexto}.${mensajeExtra}`;
         } else {
             mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada con éxito.${mensajeExtra}`;
         }
@@ -526,9 +524,9 @@ app.get('/api/reportes/metricas', verificarAdmin, async (req, res) => {
         const query = `
             SELECT 
                 (SELECT COUNT(*) FROM empleados WHERE activo = TRUE)::int AS empleados_activos,
-                (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE)::int AS asistencias_hoy,
-                (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE AND tipo = 'INGRESO')::int AS ingresos_hoy,
-                (SELECT COUNT(*) FROM registros_asistencia WHERE DATE(fecha_hora_marcacion) = CURRENT_DATE AND tipo = 'SALIDA')::int AS salidas_hoy
+                (SELECT COUNT(*) FROM registros_asistencia WHERE (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)::int AS asistencias_hoy,
+                (SELECT COUNT(*) FROM registros_asistencia WHERE (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND tipo = 'INGRESO')::int AS ingresos_hoy,
+                (SELECT COUNT(*) FROM registros_asistencia WHERE (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND tipo = 'SALIDA')::int AS salidas_hoy
         `;
         const result = await db.query(query);
         res.json(result.rows[0]);
@@ -538,38 +536,148 @@ app.get('/api/reportes/metricas', verificarAdmin, async (req, res) => {
     }
 });
 
-// Ver Reportes (PROTEGIDO)
+// Endpoint Dashboard Resumen Integral (PROTEGIDO)
+app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
+    try {
+        // 1. Empleados activos
+        const empQuery = await db.query(`
+            SELECT id, nombre_completo, area, dias_laborables, hora_ingreso, hora_salida, hora_ingreso_sab, hora_salida_sab 
+            FROM empleados WHERE activo = TRUE
+        `);
+        const empleados = empQuery.rows;
+        const totalPlantilla = empleados.length;
+
+        // 2. Marcaciones de hoy (reloj Lima UTC -5)
+        const hoyQuery = await db.query(`
+            SELECT r.id, r.empleado_id, e.nombre_completo, e.area, r.fecha_hora_marcacion, r.metodo, r.tipo, r.horas_trabajadas, r.minutos_netos,
+                   e.hora_ingreso, e.hora_ingreso_sab
+            FROM registros_asistencia r
+            JOIN empleados e ON r.empleado_id = e.id
+            WHERE (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+            ORDER BY r.fecha_hora_marcacion DESC
+        `);
+        const registrosHoy = hoyQuery.rows;
+
+        // 3. Presentes hoy
+        const idsPresentes = new Set();
+        const tardanzasList = [];
+
+        const ahora = new Date();
+        const ahoraLima = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+        const diaSemana = ahoraLima.getUTCDay(); // 6: Sábado
+
+        registrosHoy.forEach(reg => {
+            if (reg.tipo === 'INGRESO') {
+                idsPresentes.add(reg.empleado_id);
+
+                // Calcular tardanza
+                const horaPactada = diaSemana === 6 ? (reg.hora_ingreso_sab || '08:00') : (reg.hora_ingreso || '08:00');
+                const [hP, mP] = horaPactada.split(':').map(Number);
+                const minutosPactados = hP * 60 + mP;
+
+                const fechaMarc = new Date(reg.fecha_hora_marcacion);
+                const fechaMarcLima = new Date(fechaMarc.getTime() - (5 * 60 * 60 * 1000));
+                const minutosMarc = fechaMarcLima.getUTCHours() * 60 + fechaMarcLima.getUTCMinutes();
+
+                const difMin = minutosMarc - minutosPactados;
+                if (difMin > 5) {
+                    tardanzasList.push({
+                        empleado_id: reg.empleado_id,
+                        nombre: reg.nombre_completo,
+                        area: reg.area,
+                        hora_ingreso: fechaMarcLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        turno: horaPactada,
+                        minutos_retraso: difMin
+                    });
+                }
+            }
+        });
+
+        // 4. Inasistencias de hoy (empleados activos sin ingreso)
+        const inasistenciasList = empleados.filter(e => !idsPresentes.has(e.id)).map(e => ({
+            empleado_id: e.id,
+            nombre: e.nombre_completo,
+            area: e.area,
+            turno: diaSemana === 6 ? (e.hora_ingreso_sab || '08:00') : (e.hora_ingreso || '08:00')
+        }));
+
+        // 5. Últimas actividades
+        const actividadReciente = registrosHoy.slice(0, 8).map(r => {
+            const f = new Date(r.fecha_hora_marcacion);
+            const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
+            return {
+                id: r.id,
+                nombre: r.nombre_completo,
+                area: r.area,
+                tipo: r.tipo,
+                metodo: r.metodo,
+                horas_trabajadas: r.horas_trabajadas,
+                hora: fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })
+            };
+        });
+
+        res.json({
+            total_plantilla: totalPlantilla,
+            presentes_hoy: idsPresentes.size,
+            tardanzas_hoy: tardanzasList.length,
+            inasistencias_hoy: inasistenciasList.length,
+            tardanzas_lista: tardanzasList,
+            inasistencias_lista: inasistenciasList,
+            actividad_reciente: actividadReciente
+        });
+    } catch (err) {
+        console.error('Error GET reportes/dashboard:', err);
+        res.status(500).json({ error: 'Error al calcular métricas de dashboard' });
+    }
+});
+
+// Ver Reportes Filtrados (PROTEGIDO)
 app.get('/api/reportes', verificarAdmin, async (req, res) => {
-    const { empleado_id, periodo, tipo } = req.query;
+    const { empleado_id, periodo, tipo, fecha_inicio, fecha_fin } = req.query;
 
     try {
         let query = `
-            SELECT r.id, e.nombre_completo, r.fecha_hora_marcacion, r.metodo, r.tipo, r.horas_trabajadas, r.minutos_netos
+            SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
+                   e.hora_ingreso, e.hora_ingreso_sab,
+                   r.fecha_hora_marcacion, r.metodo, r.tipo, 
+                   r.horas_trabajadas, r.minutos_netos
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
             WHERE 1=1
         `;
         const values = [];
 
-        if (empleado_id && empleado_id !== 'TODOS') {
+        if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
             values.push(empleado_id);
             query += ` AND r.empleado_id = $${values.length}`;
         }
 
-        if (tipo && tipo !== 'TODOS') {
+        if (tipo && tipo !== 'TODOS' && tipo !== 'todos') {
             values.push(tipo.toUpperCase());
             query += ` AND r.tipo = $${values.length}`;
         }
 
-        if (periodo === 'DIA') {
-            query += ` AND DATE(r.fecha_hora_marcacion) = CURRENT_DATE`;
-        } else if (periodo === 'SEMANA') {
-            query += ` AND r.fecha_hora_marcacion >= date_trunc('week', CURRENT_DATE)`;
-        } else if (periodo === 'MES') {
-            query += ` AND r.fecha_hora_marcacion >= date_trunc('month', CURRENT_DATE)`;
+        if (fecha_inicio) {
+            values.push(fecha_inicio);
+            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date >= $${values.length}::date`;
         }
 
-        query += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 500;`;
+        if (fecha_fin) {
+            values.push(fecha_fin);
+            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date <= $${values.length}::date`;
+        }
+
+        if (!fecha_inicio && !fecha_fin) {
+            if (periodo === 'DIA' || periodo === 'dia') {
+                query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`;
+            } else if (periodo === 'SEMANA' || periodo === 'semana') {
+                query += ` AND r.fecha_hora_marcacion >= date_trunc('week', CURRENT_TIMESTAMP)`;
+            } else if (periodo === 'MES' || periodo === 'mes') {
+                query += ` AND r.fecha_hora_marcacion >= date_trunc('month', CURRENT_TIMESTAMP)`;
+            }
+        }
+
+        query += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 1000;`;
 
         const result = await db.query(query, values);
         res.json(result.rows);
