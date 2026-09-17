@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS registros_asistencia (
     empleado_id INTEGER REFERENCES empleados(id) ON DELETE CASCADE,
     metodo VARCHAR(50) NOT NULL,
     tipo VARCHAR(50) NOT NULL,
+    horas_trabajadas VARCHAR(50),
+    minutos_netos INTEGER,
     fecha_hora_marcacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -217,7 +217,9 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
 });
 
 // ==========================================================
-// LÓGICA CENTRAL DE MARCACIÓN (4 ESTADOS: INGRESO, REFRIGERIO, RETORNO, SALIDA)
+// ==========================================================
+// LÓGICA CENTRAL DE MARCACIÓN (2 ESTADOS: INGRESO / SALIDA)
+// CÁLCULO INTELIGENTE DE HORAS EFECTIVAS Y DESCUENTO DE REFRIGERIO
 // ==========================================================
 async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     const lastMarkQuery = `
@@ -234,14 +236,12 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     const ahora = new Date();
     // Ajuste al reloj de Perú (UTC -5)
     const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
-    const diaSemana = ahoraPeru.getUTCDay(); // 0: Dom, 6: Sáb
+    const diaSemana = ahoraPeru.getUTCDay(); // 0: Dom, 1: Lun ... 6: Sáb
 
-    const nombresTipos = {
-        'INGRESO': 'INGRESO',
-        'SALIDA_REFRIGERIO': 'SALIDA A REFRIGERIO',
-        'RETORNO_REFRIGERIO': 'RETORNO DE REFRIGERIO',
-        'SALIDA': 'SALIDA FINAL'
-    };
+    // Validar tipo permitido
+    if (tipoAsistencia && tipoAsistencia !== 'INGRESO' && tipoAsistencia !== 'SALIDA') {
+        tipoAsistencia = 'INGRESO';
+    }
 
     if (lastMarkResult.rows.length === 0) {
         // Primer registro histórico del empleado: siempre debe ser INGRESO
@@ -250,7 +250,7 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
                 ok: false,
                 status: 400,
                 accionSugerida: 'INGRESO',
-                error: 'No registra un INGRESO previo. Por favor, marque primero su INGRESO.'
+                error: 'No registra un INGRESO previo. Por favor, marque primero su ENTRADA / INGRESO.'
             };
         }
         tipoAsistencia = 'INGRESO';
@@ -269,29 +269,21 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
                 ok: false,
                 status: 400,
                 accionSugerida: 'INGRESO',
-                error: 'No registra un INGRESO el día de hoy. Por favor, marque primero su INGRESO.'
+                error: 'No registra un INGRESO el día de hoy. Por favor, marque primero su ENTRADA / INGRESO.'
             };
         }
 
-        // 2. REGLA: Bloqueo por estado repetido consecutivo en el mismo día
-        if (esMismoDia && tipoAsistencia === ultimaMarcacion.tipo) {
-            let accionCorrecta = 'SALIDA';
-            if (ultimaMarcacion.tipo === 'INGRESO') accionCorrecta = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
-            else if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO') accionCorrecta = 'RETORNO_REFRIGERIO';
-            else if (ultimaMarcacion.tipo === 'RETORNO_REFRIGERIO') accionCorrecta = 'SALIDA';
-            else if (ultimaMarcacion.tipo === 'SALIDA') accionCorrecta = 'INGRESO';
-
-            return {
-                ok: false,
-                status: 400,
-                accionSugerida: accionCorrecta,
-                error: `Usted ya marcó ${nombresTipos[ultimaMarcacion.tipo] || ultimaMarcacion.tipo} hoy. Acción sugerida: ${nombresTipos[accionCorrecta] || accionCorrecta}.`
-            };
-        }
-
-        // 3. REGLA: Validación de secuencia en el mismo día
+        // 2. REGLA: Mismo día, evitar estados repetidos
         if (esMismoDia) {
-            if (ultimaMarcacion.tipo === 'SALIDA') {
+            if (ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
+                return {
+                    ok: false,
+                    status: 400,
+                    accionSugerida: 'SALIDA',
+                    error: 'Usted ya registró su INGRESO el día de hoy. Si terminó su jornada, marque SALIDA.'
+                };
+            }
+            if (ultimaMarcacion.tipo === 'SALIDA' && tipoAsistencia === 'SALIDA') {
                 return {
                     ok: false,
                     status: 400,
@@ -299,82 +291,123 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
                     error: 'Usted ya completó su jornada marcando SALIDA el día de hoy.'
                 };
             }
-
-            if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO' && tipoAsistencia === 'SALIDA') {
+            if (ultimaMarcacion.tipo === 'SALIDA' && tipoAsistencia === 'INGRESO') {
                 return {
                     ok: false,
                     status: 400,
-                    accionSugerida: 'RETORNO_REFRIGERIO',
-                    error: 'Tiene pendiente registrar su RETORNO DE REFRIGERIO antes de la salida final.'
-                };
-            }
-
-            if (ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'RETORNO_REFRIGERIO') {
-                return {
-                    ok: false,
-                    status: 400,
-                    accionSugerida: 'SALIDA_REFRIGERIO',
-                    error: 'Aún no ha registrado su SALIDA A REFRIGERIO.'
+                    accionSugerida: 'INGRESO',
+                    error: 'Usted ya completó su jornada laboral el día de hoy.'
                 };
             }
         }
 
-        // 4. Auto-asignación inteligente si no se envió tipo
+        // 3. Auto-asignación inteligente si no se envió tipo
         if (!tipoAsistencia) {
             if (!esMismoDia) {
                 tipoAsistencia = 'INGRESO';
             } else if (ultimaMarcacion.tipo === 'INGRESO') {
-                tipoAsistencia = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
-            } else if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO') {
-                tipoAsistencia = 'RETORNO_REFRIGERIO';
-            } else if (ultimaMarcacion.tipo === 'RETORNO_REFRIGERIO') {
                 tipoAsistencia = 'SALIDA';
             } else {
                 tipoAsistencia = 'INGRESO';
             }
         }
 
-        // 5. AUTO-CIERRE de turno anterior por omisión si quedó abierto ayer
-        if (!esMismoDia && ultimaMarcacion.tipo !== 'SALIDA' && tipoAsistencia === 'INGRESO') {
+        // 4. AUTO-CIERRE de turno anterior por omisión si quedó abierto ayer
+        if (!esMismoDia && ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
             const fechaSalidaAutomatica = new Date(fechaUltima);
             fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 8:00 PM del día del turno abierto
             
             const autoSalidaQuery = `
-                INSERT INTO registros_asistencia (empleado_id, metodo, tipo, fecha_hora_marcacion) 
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO registros_asistencia (empleado_id, metodo, tipo, horas_trabajadas, minutos_netos, fecha_hora_marcacion) 
+                VALUES ($1, $2, $3, $4, $5, $6)
             `;
-            await db.query(autoSalidaQuery, [empleadoId, 'SISTEMA_AUTO', 'SALIDA', fechaSalidaAutomatica]);
-            mensajeExtra = ' (Aviso: Se cerró automáticamente tu turno anterior por omisión)';
+            await db.query(autoSalidaQuery, [empleadoId, 'SISTEMA_AUTO', 'SALIDA', 'Turno cerrado auto', null, fechaSalidaAutomatica]);
+            mensajeExtra = ' (Aviso: Se cerró automáticamente tu turno de ayer por omisión)';
         }
     }
 
-    // 6. Insertar marcación
-    const insertQuery = `
-        INSERT INTO registros_asistencia (empleado_id, metodo, tipo) 
-        VALUES ($1, $2, $3) 
-        RETURNING id, fecha_hora_marcacion
-    `;
-    await db.query(insertQuery, [empleadoId, metodo.toUpperCase(), tipoAsistencia]);
-    
-    // Determinar siguiente acción sugerida
-    let proximaAccion = 'SALIDA';
-    if (tipoAsistencia === 'INGRESO') {
-        proximaAccion = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
-    } else if (tipoAsistencia === 'SALIDA_REFRIGERIO') {
-        proximaAccion = 'RETORNO_REFRIGERIO';
-    } else if (tipoAsistencia === 'RETORNO_REFRIGERIO') {
-        proximaAccion = 'SALIDA';
-    } else if (tipoAsistencia === 'SALIDA') {
-        proximaAccion = 'INGRESO';
+    // Consultar datos del empleado (horario y refrigerio)
+    const empResult = await db.query(`
+        SELECT nombre_completo, area, dias_laborables, hora_ingreso, hora_salida, 
+               hora_ingreso_sab, hora_salida_sab, inicio_refrigerio, fin_refrigerio 
+        FROM empleados WHERE id = $1
+    `, [empleadoId]);
+    const emp = empResult.rows[0];
+    const nombreColaborador = emp?.nombre_completo || 'Colaborador';
+
+    let horasTrabajadasTexto = null;
+    let minutosNetos = null;
+    let mensajeConfirmacion = '';
+
+    if (tipoAsistencia === 'SALIDA') {
+        // Buscar el INGRESO de hoy para calcular tiempo trabajado
+        const ingresoQuery = `
+            SELECT fecha_hora_marcacion 
+            FROM registros_asistencia 
+            WHERE empleado_id = $1 
+              AND tipo = 'INGRESO' 
+              AND (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+            ORDER BY fecha_hora_marcacion DESC LIMIT 1
+        `;
+        const ingresoResult = await db.query(ingresoQuery, [empleadoId]);
+        
+        if (ingresoResult.rows.length > 0) {
+            const fechaIngreso = new Date(ingresoResult.rows[0].fecha_hora_marcacion);
+            const difMs = ahora.getTime() - fechaIngreso.getTime();
+            const minutosTotales = Math.max(0, Math.round(difMs / (1000 * 60)));
+
+            let minutosDescuentoRefrigerio = 0;
+            // Si es sábado (diaSemana === 6), es medio turno: NO se descuenta almuerzo
+            if (diaSemana !== 6) {
+                // Lunes a Viernes: calcular duración de refrigerio pactada (default 60 min)
+                let duracionRefrigerio = 60;
+                if (emp?.inicio_refrigerio && emp?.fin_refrigerio) {
+                    const [hI, mI] = emp.inicio_refrigerio.split(':').map(Number);
+                    const [hF, mF] = emp.fin_refrigerio.split(':').map(Number);
+                    const calc = (hF * 60 + mF) - (hI * 60 + mI);
+                    if (calc > 0) duracionRefrigerio = calc;
+                }
+
+                // Solo descontar si la jornada fue de 5 horas o más (300 minutos)
+                if (minutosTotales >= 300) {
+                    minutosDescuentoRefrigerio = duracionRefrigerio;
+                }
+            }
+
+            minutosNetos = Math.max(0, minutosTotales - minutosDescuentoRefrigerio);
+            const h = Math.floor(minutosNetos / 60);
+            const m = minutosNetos % 60;
+            horasTrabajadasTexto = `${h}h ${m}m`;
+
+            let txtRefrig = minutosDescuentoRefrigerio > 0 ? ` (descontando ${Math.round(minutosDescuentoRefrigerio / 60)}h almuerzo)` : '';
+            mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada. Tiempo efectivo: ${horasTrabajadasTexto}${txtRefrig}.${mensajeExtra}`;
+        } else {
+            mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada con éxito.${mensajeExtra}`;
+        }
+    } else {
+        const horaStr = ahoraPeru.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+        mensajeConfirmacion = `¡Bienvenido/a, ${nombreColaborador}! Ingreso registrado a las ${horaStr}.${mensajeExtra}`;
     }
 
-    const empResult = await db.query('SELECT nombre_completo FROM empleados WHERE id = $1', [empleadoId]);
+    // 5. Insertar marcación con horas trabajadas calculadas
+    const insertQuery = `
+        INSERT INTO registros_asistencia (empleado_id, metodo, tipo, horas_trabajadas, minutos_netos) 
+        VALUES ($1, $2, $3, $4, $5) 
+        RETURNING id, fecha_hora_marcacion
+    `;
+    await db.query(insertQuery, [empleadoId, metodo.toUpperCase(), tipoAsistencia, horasTrabajadasTexto, minutosNetos]);
+    
+    // Siguiente acción sugerida
+    const proximaAccion = tipoAsistencia === 'INGRESO' ? 'SALIDA' : 'INGRESO';
+
     return {
         ok: true,
-        nombre: empResult.rows[0]?.nombre_completo || 'Desconocido',
+        nombre: nombreColaborador,
         tipo: tipoAsistencia,
+        horas_trabajadas: horasTrabajadasTexto,
+        minutos_netos: minutosNetos,
         accionSugerida: proximaAccion,
-        mensaje: `Asistencia de ${nombresTipos[tipoAsistencia] || tipoAsistencia} registrada con éxito${mensajeExtra}`
+        mensaje: mensajeConfirmacion
     };
 }
 
@@ -510,7 +543,7 @@ app.get('/api/reportes', verificarAdmin, async (req, res) => {
 
     try {
         let query = `
-            SELECT r.id, e.nombre_completo, r.fecha_hora_marcacion, r.metodo, r.tipo
+            SELECT r.id, e.nombre_completo, r.fecha_hora_marcacion, r.metodo, r.tipo, r.horas_trabajadas, r.minutos_netos
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
             WHERE 1=1
