@@ -112,9 +112,13 @@ app.get('/api/empleados/admin', verificarAdmin, async (req, res) => {
         const query = `
             SELECT e.id, e.nombre_completo, 
                    COALESCE(e.area, 'Desarrollo de Software') AS area,
-                   COALESCE(e.dias_laborables, 'Lun, Mar, Mié, Jue, Vie') AS dias_laborables,
+                   COALESCE(e.dias_laborables, 'Lun, Mar, Mié, Jue, Vie, Sáb') AS dias_laborables,
                    COALESCE(e.hora_ingreso, '08:00') AS hora_ingreso,
-                   COALESCE(e.hora_salida, '17:00') AS hora_salida,
+                   COALESCE(e.hora_salida, '18:00') AS hora_salida,
+                   COALESCE(e.hora_ingreso_sab, '08:00') AS hora_ingreso_sab,
+                   COALESCE(e.hora_salida_sab, '13:00') AS hora_salida_sab,
+                   COALESCE(e.inicio_refrigerio, '13:00') AS inicio_refrigerio,
+                   COALESCE(e.fin_refrigerio, '14:00') AS fin_refrigerio,
                    e.activo, e.creado_en,
                    (e.face_descriptor IS NOT NULL) AS tiene_rostro,
                    COUNT(r.id)::int AS total_asistencias
@@ -156,7 +160,13 @@ app.patch('/api/empleados/:id/toggle', verificarAdmin, async (req, res) => {
 
 // Endpoint 3: Crear nuevo empleado (PROTEGIDO + HASHEO BCRYPT)
 app.post('/api/empleados', verificarAdmin, async (req, res) => {
-    const { nombre_completo, codigo_pin, face_descriptor, area, dias_laborables, hora_ingreso, hora_salida } = req.body;
+    const { 
+        nombre_completo, codigo_pin, face_descriptor, 
+        area, dias_laborables, 
+        hora_ingreso, hora_salida, 
+        hora_ingreso_sab, hora_salida_sab, 
+        inicio_refrigerio, fin_refrigerio 
+    } = req.body;
 
     if (!nombre_completo || !codigo_pin || !face_descriptor) {
         return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, pin o rostro).' });
@@ -168,8 +178,14 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
         const hashedPin = await bcrypt.hash(codigo_pin.toString(), salt);
 
         const query = `
-            INSERT INTO empleados (nombre_completo, codigo_pin, face_descriptor, area, dias_laborables, hora_ingreso, hora_salida) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            INSERT INTO empleados (
+                nombre_completo, codigo_pin, face_descriptor, 
+                area, dias_laborables, 
+                hora_ingreso, hora_salida, 
+                hora_ingreso_sab, hora_salida_sab, 
+                inicio_refrigerio, fin_refrigerio
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
             RETURNING id, nombre_completo, area, dias_laborables, hora_ingreso, hora_salida, activo
         `;
         
@@ -178,9 +194,13 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
             hashedPin, 
             JSON.stringify(face_descriptor),
             area || 'Desarrollo de Software',
-            dias_laborables || 'Lun, Mar, Mié, Jue, Vie',
+            dias_laborables || 'Lun, Mar, Mié, Jue, Vie, Sáb',
             hora_ingreso || '08:00',
-            hora_salida || '17:00'
+            hora_salida || '18:00',
+            hora_ingreso_sab || '08:00',
+            hora_salida_sab || '13:00',
+            inicio_refrigerio || '13:00',
+            fin_refrigerio || '14:00'
         ]);
         const nuevoEmpleado = result.rows[0];
 
@@ -197,7 +217,7 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
 });
 
 // ==========================================================
-// LÓGICA CENTRAL DE MARCACIÓN (HORA PERÚ Y VALIDACIÓN DE ESTADO)
+// LÓGICA CENTRAL DE MARCACIÓN (4 ESTADOS: INGRESO, REFRIGERIO, RETORNO, SALIDA)
 // ==========================================================
 async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     const lastMarkQuery = `
@@ -208,16 +228,24 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     `;
     const lastMarkResult = await db.query(lastMarkQuery, [empleadoId]);
 
-    let tipoAsistencia = tipoSolicitado ? tipoSolicitado.toUpperCase() : null;
+    let tipoAsistencia = tipoSolicitado ? tipoSolicitado.toUpperCase().trim() : null;
     let mensajeExtra = '';
 
     const ahora = new Date();
     // Ajuste al reloj de Perú (UTC -5)
     const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+    const diaSemana = ahoraPeru.getUTCDay(); // 0: Dom, 6: Sáb
+
+    const nombresTipos = {
+        'INGRESO': 'INGRESO',
+        'SALIDA_REFRIGERIO': 'SALIDA A REFRIGERIO',
+        'RETORNO_REFRIGERIO': 'RETORNO DE REFRIGERIO',
+        'SALIDA': 'SALIDA FINAL'
+    };
 
     if (lastMarkResult.rows.length === 0) {
         // Primer registro histórico del empleado: siempre debe ser INGRESO
-        if (tipoAsistencia === 'SALIDA') {
+        if (tipoAsistencia && tipoAsistencia !== 'INGRESO') {
             return {
                 ok: false,
                 status: 400,
@@ -235,8 +263,8 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
                            fechaUltimaPeru.getUTCMonth() === ahoraPeru.getUTCMonth() && 
                            fechaUltimaPeru.getUTCDate() === ahoraPeru.getUTCDate();
 
-        // 1. REGLA: En un nuevo día, la primera marcación NUNCA puede ser SALIDA
-        if (!esMismoDia && tipoAsistencia === 'SALIDA') {
+        // 1. REGLA: En un nuevo día, la primera marcación NUNCA puede ser distinta a INGRESO
+        if (!esMismoDia && tipoAsistencia && tipoAsistencia !== 'INGRESO') {
             return {
                 ok: false,
                 status: 400,
@@ -245,24 +273,69 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
             };
         }
 
-        // 2. REGLA: Bloqueo por estado repetido en el mismo día
+        // 2. REGLA: Bloqueo por estado repetido consecutivo en el mismo día
         if (esMismoDia && tipoAsistencia === ultimaMarcacion.tipo) {
-            const accionCorrecta = ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
+            let accionCorrecta = 'SALIDA';
+            if (ultimaMarcacion.tipo === 'INGRESO') accionCorrecta = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
+            else if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO') accionCorrecta = 'RETORNO_REFRIGERIO';
+            else if (ultimaMarcacion.tipo === 'RETORNO_REFRIGERIO') accionCorrecta = 'SALIDA';
+            else if (ultimaMarcacion.tipo === 'SALIDA') accionCorrecta = 'INGRESO';
+
             return {
                 ok: false,
                 status: 400,
                 accionSugerida: accionCorrecta,
-                error: `Usted ya marcó ${ultimaMarcacion.tipo} hoy. Por favor, marque ${accionCorrecta}.`
+                error: `Usted ya marcó ${nombresTipos[ultimaMarcacion.tipo] || ultimaMarcacion.tipo} hoy. Acción sugerida: ${nombresTipos[accionCorrecta] || accionCorrecta}.`
             };
         }
 
-        // 3. Fallback si no especificó tipo
-        if (!tipoAsistencia) {
-            tipoAsistencia = esMismoDia && ultimaMarcacion.tipo === 'INGRESO' ? 'SALIDA' : 'INGRESO';
+        // 3. REGLA: Validación de secuencia en el mismo día
+        if (esMismoDia) {
+            if (ultimaMarcacion.tipo === 'SALIDA') {
+                return {
+                    ok: false,
+                    status: 400,
+                    accionSugerida: 'INGRESO',
+                    error: 'Usted ya completó su jornada marcando SALIDA el día de hoy.'
+                };
+            }
+
+            if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO' && tipoAsistencia === 'SALIDA') {
+                return {
+                    ok: false,
+                    status: 400,
+                    accionSugerida: 'RETORNO_REFRIGERIO',
+                    error: 'Tiene pendiente registrar su RETORNO DE REFRIGERIO antes de la salida final.'
+                };
+            }
+
+            if (ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'RETORNO_REFRIGERIO') {
+                return {
+                    ok: false,
+                    status: 400,
+                    accionSugerida: 'SALIDA_REFRIGERIO',
+                    error: 'Aún no ha registrado su SALIDA A REFRIGERIO.'
+                };
+            }
         }
 
-        // 4. AUTO-CIERRE de turno anterior por omisión (ej. si olvidó marcar salida ayer o salió a ventas)
-        if (!esMismoDia && ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
+        // 4. Auto-asignación inteligente si no se envió tipo
+        if (!tipoAsistencia) {
+            if (!esMismoDia) {
+                tipoAsistencia = 'INGRESO';
+            } else if (ultimaMarcacion.tipo === 'INGRESO') {
+                tipoAsistencia = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
+            } else if (ultimaMarcacion.tipo === 'SALIDA_REFRIGERIO') {
+                tipoAsistencia = 'RETORNO_REFRIGERIO';
+            } else if (ultimaMarcacion.tipo === 'RETORNO_REFRIGERIO') {
+                tipoAsistencia = 'SALIDA';
+            } else {
+                tipoAsistencia = 'INGRESO';
+            }
+        }
+
+        // 5. AUTO-CIERRE de turno anterior por omisión si quedó abierto ayer
+        if (!esMismoDia && ultimaMarcacion.tipo !== 'SALIDA' && tipoAsistencia === 'INGRESO') {
             const fechaSalidaAutomatica = new Date(fechaUltima);
             fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 8:00 PM del día del turno abierto
             
@@ -275,7 +348,7 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
         }
     }
 
-    // 5. Insertar marcación
+    // 6. Insertar marcación
     const insertQuery = `
         INSERT INTO registros_asistencia (empleado_id, metodo, tipo) 
         VALUES ($1, $2, $3) 
@@ -283,12 +356,25 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     `;
     await db.query(insertQuery, [empleadoId, metodo.toUpperCase(), tipoAsistencia]);
     
+    // Determinar siguiente acción sugerida
+    let proximaAccion = 'SALIDA';
+    if (tipoAsistencia === 'INGRESO') {
+        proximaAccion = diaSemana === 6 ? 'SALIDA' : 'SALIDA_REFRIGERIO';
+    } else if (tipoAsistencia === 'SALIDA_REFRIGERIO') {
+        proximaAccion = 'RETORNO_REFRIGERIO';
+    } else if (tipoAsistencia === 'RETORNO_REFRIGERIO') {
+        proximaAccion = 'SALIDA';
+    } else if (tipoAsistencia === 'SALIDA') {
+        proximaAccion = 'INGRESO';
+    }
+
     const empResult = await db.query('SELECT nombre_completo FROM empleados WHERE id = $1', [empleadoId]);
     return {
         ok: true,
         nombre: empResult.rows[0]?.nombre_completo || 'Desconocido',
         tipo: tipoAsistencia,
-        mensaje: `Asistencia de ${tipoAsistencia} registrada${mensajeExtra}`
+        accionSugerida: proximaAccion,
+        mensaje: `Asistencia de ${nombresTipos[tipoAsistencia] || tipoAsistencia} registrada con éxito${mensajeExtra}`
     };
 }
 

@@ -39,15 +39,23 @@
     <!-- ÁREA PRINCIPAL DIRECTA (SIN PASOS INTERMEDIOS) -->
     <main class="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto relative my-2">
         
-        <!-- 1. SELECTOR DIRECTO INGRESO / SALIDA -->
-        <div class="flex bg-slate-800/90 p-1.5 rounded-2xl w-full mb-3 relative z-guia shadow-inner border border-slate-700">
-            <button id="btn-ingreso" onclick="setTipoMarcacion('INGRESO')" class="flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all bg-blue-600 text-white shadow-lg flex items-center justify-center gap-2">
-                <i data-lucide="log-in" class="w-4 h-4"></i>
-                INGRESO
+        <!-- 1. SELECTOR DIRECTO DE MARCACIÓN (4 ESTADOS) -->
+        <div class="grid grid-cols-2 gap-2 bg-slate-850 p-2 rounded-2xl w-full mb-3 relative z-guia shadow-inner border border-slate-700/80 text-xs sm:text-sm font-bold">
+            <button id="btn-tipo-ingreso" onclick="setTipoMarcacion('INGRESO')" class="py-2.5 px-3 rounded-xl transition-all bg-blue-600 text-white shadow-lg flex items-center justify-center gap-1.5 font-black tracking-wide border border-blue-400/40">
+                <i data-lucide="log-in" class="w-4 h-4 text-blue-200"></i>
+                <span>1. INGRESO</span>
             </button>
-            <button id="btn-salida" onclick="setTipoMarcacion('SALIDA')" class="flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all text-slate-400 hover:text-white flex items-center justify-center gap-2">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-                SALIDA
+            <button id="btn-tipo-salida-ref" onclick="setTipoMarcacion('SALIDA_REFRIGERIO')" class="py-2.5 px-3 rounded-xl transition-all text-slate-400 hover:text-white bg-slate-900/70 border border-slate-700/60 flex items-center justify-center gap-1.5 font-semibold">
+                <i data-lucide="coffee" class="w-4 h-4 text-amber-400"></i>
+                <span>2. A REFRIGERIO</span>
+            </button>
+            <button id="btn-tipo-retorno-ref" onclick="setTipoMarcacion('RETORNO_REFRIGERIO')" class="py-2.5 px-3 rounded-xl transition-all text-slate-400 hover:text-white bg-slate-900/70 border border-slate-700/60 flex items-center justify-center gap-1.5 font-semibold">
+                <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i>
+                <span>3. DE REFRIGERIO</span>
+            </button>
+            <button id="btn-tipo-salida" onclick="setTipoMarcacion('SALIDA')" class="py-2.5 px-3 rounded-xl transition-all text-slate-400 hover:text-white bg-slate-900/70 border border-slate-700/60 flex items-center justify-center gap-1.5 font-semibold">
+                <i data-lucide="log-out" class="w-4 h-4 text-rose-400"></i>
+                <span>4. SALIDA FINAL</span>
             </button>
         </div>
 
@@ -162,27 +170,55 @@
         actualizarReloj();
 
         // =====================================
-        // ESTADOS DE MARCACIÓN DIRECTA
+        // ESTADOS DE MARCACIÓN DIRECTA (4 ESTADOS)
         // =====================================
-        let tipoMarcacionActual = 'INGRESO'; // 'INGRESO' o 'SALIDA'
+        let tipoMarcacionActual = 'INGRESO'; // 'INGRESO', 'SALIDA_REFRIGERIO', 'RETORNO_REFRIGERIO', 'SALIDA'
         let metodoActual = 'ROSTRO';         // 'ROSTRO' o 'PIN'
         let marcacionEnProceso = false;
 
+        const configTiposMarcacion = {
+            'INGRESO': {
+                btnId: 'btn-tipo-ingreso',
+                colorActivo: 'bg-blue-600 text-white shadow-lg border-blue-400/50',
+                ovaloClass: 'border-blue-500/70'
+            },
+            'SALIDA_REFRIGERIO': {
+                btnId: 'btn-tipo-salida-ref',
+                colorActivo: 'bg-amber-600 text-white shadow-lg border-amber-400/50',
+                ovaloClass: 'border-amber-500/70'
+            },
+            'RETORNO_REFRIGERIO': {
+                btnId: 'btn-tipo-retorno-ref',
+                colorActivo: 'bg-emerald-600 text-white shadow-lg border-emerald-400/50',
+                ovaloClass: 'border-emerald-500/70'
+            },
+            'SALIDA': {
+                btnId: 'btn-tipo-salida',
+                colorActivo: 'bg-rose-600 text-white shadow-lg border-rose-400/50',
+                ovaloClass: 'border-rose-500/70'
+            }
+        };
+
         function setTipoMarcacion(tipo) {
+            if (!configTiposMarcacion[tipo]) tipo = 'INGRESO';
             tipoMarcacionActual = tipo;
-            const btnIngreso = document.getElementById('btn-ingreso');
-            const btnSalida = document.getElementById('btn-salida');
             const ovalo = document.getElementById('ovalo-guia');
 
-            if (tipo === 'INGRESO') {
-                btnIngreso.className = "flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all bg-blue-600 text-white shadow-lg flex items-center justify-center gap-2";
-                btnSalida.className = "flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all text-slate-400 hover:text-white flex items-center justify-center gap-2";
-                if (ovalo) ovalo.classList.replace('border-red-500/70', 'border-blue-500/70');
-            } else {
-                btnSalida.className = "flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all bg-red-600 text-white shadow-lg flex items-center justify-center gap-2";
-                btnIngreso.className = "flex-1 py-3 rounded-xl text-sm sm:text-base font-black tracking-wider transition-all text-slate-400 hover:text-white flex items-center justify-center gap-2";
-                if (ovalo) ovalo.classList.replace('border-blue-500/70', 'border-red-500/70');
-            }
+            Object.keys(configTiposMarcacion).forEach(k => {
+                const conf = configTiposMarcacion[k];
+                const btn = document.getElementById(conf.btnId);
+                if (!btn) return;
+
+                if (k === tipo) {
+                    btn.className = `py-2.5 px-3 rounded-xl transition-all ${conf.colorActivo} flex items-center justify-center gap-1.5 font-black tracking-wide border`;
+                    if (ovalo) {
+                        ovalo.className = `absolute z-guia border-[3px] border-dashed ${conf.ovaloClass} w-2/3 h-3/4 rounded-[50%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_0_9999px_rgba(15,23,42,0.55)] transition-colors duration-300`;
+                    }
+                } else {
+                    btn.className = "py-2.5 px-3 rounded-xl transition-all text-slate-400 hover:text-white bg-slate-900/70 border border-slate-700/60 flex items-center justify-center gap-1.5 font-semibold";
+                }
+            });
+            lucide.createIcons();
         }
 
         async function cambiarMetodo(metodo) {

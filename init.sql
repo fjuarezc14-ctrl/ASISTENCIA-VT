@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS empleados (
     codigo_pin VARCHAR(100) NOT NULL,
     face_descriptor JSONB NOT NULL,
     area VARCHAR(100) DEFAULT 'Desarrollo de Software',
-    dias_laborables VARCHAR(150) DEFAULT 'Lun, Mar, Mié, Jue, Vie',
+    dias_laborables VARCHAR(150) DEFAULT 'Lun, Mar, Mié, Jue, Vie, Sáb',
     hora_ingreso VARCHAR(10) DEFAULT '08:00',
-    hora_salida VARCHAR(10) DEFAULT '17:00',
+    hora_salida VARCHAR(10) DEFAULT '18:00',
+    hora_ingreso_sab VARCHAR(10) DEFAULT '08:00',
+    hora_salida_sab VARCHAR(10) DEFAULT '13:00',
+    inicio_refrigerio VARCHAR(10) DEFAULT '13:00',
+    fin_refrigerio VARCHAR(10) DEFAULT '14:00',
     activo BOOLEAN DEFAULT TRUE,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
