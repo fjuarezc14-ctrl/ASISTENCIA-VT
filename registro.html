@@ -522,7 +522,7 @@
 
                     <!-- Horario Refrigerio / Almuerzo -->
                     <div class="border-t border-gray-200/80 pt-3">
-                        <p class="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1"><i data-lucide="coffee" class="w-3.5 h-3.5 text-amber-600"></i> Refrigerio / Almuerzo (Control Opción B)</p>
+                        <p class="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1"><i data-lucide="coffee" class="w-3.5 h-3.5 text-amber-600"></i> Refrigerio / Almuerzo (Cálculo Automático)</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-gray-600 mb-1">Salida a Refrigerio</label>
@@ -530,10 +530,10 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-gray-600 mb-1">Retorno de Refrigerio</label>
-                                <input type="time" id="reg-fin-refrigerio" value="14:00" required class="w-full p-2 border border-gray-300 rounded-lg text-xs font-semibold bg-white">
+                                <input type="time" id="reg-fin-refrigerio" value="15:00" required class="w-full p-2 border border-gray-300 rounded-lg text-xs font-semibold bg-white">
                             </div>
                         </div>
-                        <p class="text-[10px] text-gray-400 mt-1">Duración estándar: 1 hora. El colaborador registrará salida y retorno de refrigerio en la terminal.</p>
+                        <p class="text-[10px] text-gray-400 mt-1">Horario habitual: 1:00 PM a 3:00 PM (2 horas). El sistema descuenta este tiempo automáticamente al computar las horas efectivas.</p>
                     </div>
                 </div>
 
@@ -941,7 +941,7 @@
                 const horarioSabHtml = tieneSab 
                     ? `<div class="text-[11px] text-indigo-700 font-semibold mt-1"><span class="bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">Sáb: ${emp.hora_ingreso_sab || '08:00'} - ${emp.hora_salida_sab || '13:00'}</span></div>` 
                     : '';
-                const refrigerioHtml = `<div class="text-[11px] text-amber-700 font-medium mt-1"><span class="bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Refrigerio: ${emp.inicio_refrigerio || '13:00'} - ${emp.fin_refrigerio || '14:00'}</span></div>`;
+                const refrigerioHtml = `<div class="text-[11px] text-amber-700 font-medium mt-1"><span class="bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Refrigerio: ${emp.inicio_refrigerio || '13:00'} - ${emp.fin_refrigerio || '15:00'}</span></div>`;
 
                 tr.innerHTML = `
                     <td class="px-5 py-3.5 font-mono text-gray-400 text-xs font-bold">#${emp.id}</td>

@@ -200,7 +200,7 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
             hora_ingreso_sab || '08:00',
             hora_salida_sab || '13:00',
             inicio_refrigerio || '13:00',
-            fin_refrigerio || '14:00'
+            fin_refrigerio || '15:00'
         ]);
         const nuevoEmpleado = result.rows[0];
 
@@ -359,8 +359,8 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
             let minutosDescuentoRefrigerio = 0;
             // Si es sábado (diaSemana === 6), es medio turno: NO se descuenta almuerzo
             if (diaSemana !== 6) {
-                // Lunes a Viernes: calcular duración de refrigerio pactada (default 60 min)
-                let duracionRefrigerio = 60;
+                // Lunes a Viernes: calcular duración de refrigerio pactada (default 120 min = 2 horas)
+                let duracionRefrigerio = 120;
                 if (emp?.inicio_refrigerio && emp?.fin_refrigerio) {
                     const [hI, mI] = emp.inicio_refrigerio.split(':').map(Number);
                     const [hF, mF] = emp.fin_refrigerio.split(':').map(Number);
@@ -379,7 +379,8 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
             const m = minutosNetos % 60;
             horasTrabajadasTexto = `${h}h ${m}m`;
 
-            let txtRefrig = minutosDescuentoRefrigerio > 0 ? ` (descontando ${Math.round(minutosDescuentoRefrigerio / 60)}h almuerzo)` : '';
+            const horasRefrig = Number((minutosDescuentoRefrigerio / 60).toFixed(1));
+            let txtRefrig = minutosDescuentoRefrigerio > 0 ? ` (descontando ${horasRefrig}h refrigerio)` : '';
             mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada. Tiempo efectivo: ${horasTrabajadasTexto}${txtRefrig}.${mensajeExtra}`;
         } else {
             mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada con éxito.${mensajeExtra}`;

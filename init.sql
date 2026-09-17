@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS empleados (
     hora_ingreso_sab VARCHAR(10) DEFAULT '08:00',
     hora_salida_sab VARCHAR(10) DEFAULT '13:00',
     inicio_refrigerio VARCHAR(10) DEFAULT '13:00',
-    fin_refrigerio VARCHAR(10) DEFAULT '14:00',
+    fin_refrigerio VARCHAR(10) DEFAULT '15:00',
     activo BOOLEAN DEFAULT TRUE,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
