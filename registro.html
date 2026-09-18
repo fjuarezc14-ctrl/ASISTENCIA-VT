@@ -691,6 +691,139 @@
         </div>
     </div>
 
+    <!-- MODAL: EDITAR COLABORADOR (MODIFICAR HORARIOS, MEDIO TIEMPO, PIN) -->
+    <div id="modal-editar-colaborador" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden my-8 border border-gray-100">
+            <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-blue-600 rounded-lg"><i data-lucide="user-cog" class="w-5 h-5"></i></div>
+                    <div>
+                        <h3 class="font-bold text-lg">Modificar Colaborador</h3>
+                        <p class="text-xs text-slate-400">Edita datos, asigna medio tiempo / tiempo completo o actualiza credenciales</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalEditarColaborador()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <form id="form-editar-colaborador" onsubmit="guardarEdicionColaborador(event)" class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                <input type="hidden" id="edit-id" value="">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo</label>
+                        <input type="text" id="edit-nombre" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Área / Departamento</label>
+                        <select id="edit-area" required class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+                            <option value="Desarrollo de Software">Desarrollo de Software</option>
+                            <option value="Proyectos">Proyectos</option>
+                            <option value="Recursos Humanos">Recursos Humanos</option>
+                            <option value="Atención al Cliente">Atención al Cliente</option>
+                            <option value="Gerencia">Gerencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PRESETS RÁPIDOS DE JORNADA -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-2 tracking-wider">Presets Rápidos de Jornada</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="aplicarPresetJornada('completo')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 text-xs font-semibold text-gray-700 hover:text-blue-700 transition text-center active:scale-95">
+                            🏢 T. Completo<br><span class="text-[10px] text-gray-400 font-normal">08:00 a 18:00</span>
+                        </button>
+                        <button type="button" onclick="aplicarPresetJornada('medio_manana')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-gray-700 hover:text-emerald-700 transition text-center active:scale-95">
+                            🌅 Medio T. Mañana<br><span class="text-[10px] text-gray-400 font-normal">08:00 a 13:00</span>
+                        </button>
+                        <button type="button" onclick="aplicarPresetJornada('medio_tarde')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-amber-50 hover:border-amber-300 text-xs font-semibold text-gray-700 hover:text-amber-700 transition text-center active:scale-95">
+                            🌆 Medio T. Tarde<br><span class="text-[10px] text-gray-400 font-normal">14:00 a 19:00</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CONFIGURACIÓN DETALLADA DE HORARIO -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800 mb-2.5 flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i> Días Laborables</h4>
+                        <div class="flex gap-2 flex-wrap">
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Lun" id="edit-dia-Lun"> Lun</label>
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Mar" id="edit-dia-Mar"> Mar</label>
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Mié" id="edit-dia-Mie"> Mié</label>
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Jue" id="edit-dia-Jue"> Jue</label>
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs font-medium cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Vie" id="edit-dia-Vie"> Vie</label>
+                            <label class="inline-flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-blue-400 text-xs font-bold text-blue-700 cursor-pointer hover:bg-blue-50"><input type="checkbox" name="edit-dia" value="Sáb" id="edit-dia-Sab" onchange="toggleEditSabado()"> Sáb (Medio día)</label>
+                        </div>
+                    </div>
+
+                    <!-- Horario Regular Lunes a Viernes -->
+                    <div class="border-t border-gray-200/80 pt-3">
+                        <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Horario Regular (Lunes a Viernes)</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Hora de Ingreso</label>
+                                <input type="time" id="edit-hora-ingreso" required class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Hora de Salida</label>
+                                <input type="time" id="edit-hora-salida" required class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Horario Sábados -->
+                    <div id="edit-seccion-sabado" class="border-t border-gray-200/80 pt-3">
+                        <h4 class="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <i data-lucide="sun" class="w-3.5 h-3.5"></i> Horario Sábado (Medio Día)
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Ingreso Sábado</label>
+                                <input type="time" id="edit-hora-ingreso-sab" value="08:00" class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Salida Sábado</label>
+                                <input type="time" id="edit-hora-salida-sab" value="13:00" class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Horario de Refrigerio -->
+                    <div class="border-t border-gray-200/80 pt-3">
+                        <h4 class="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <i data-lucide="coffee" class="w-3.5 h-3.5"></i> Horario de Refrigerio / Almuerzo
+                        </h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Inicio Refrigerio</label>
+                                <input type="time" id="edit-inicio-refrigerio" value="13:00" class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Fin Refrigerio</label>
+                                <input type="time" id="edit-fin-refrigerio" value="15:00" class="w-full p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium">
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-1.5">Nota: En jornadas de medio tiempo o menores a 5 horas, el sistema no descuenta refrigerio automáticamente.</p>
+                    </div>
+                </div>
+
+                <!-- CAMBIO OPCIONAL DE PIN -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nuevo Código PIN (Opcional)</label>
+                    <input type="password" id="edit-pin" maxlength="4" minlength="4" pattern="\d{4}" placeholder="Dejar en blanco para mantener el actual (****)" class="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm tracking-widest font-mono text-center">
+                    <p class="text-[11px] text-gray-400 mt-1">Solo escribe 4 nuevos números si deseas cambiar el PIN.</p>
+                </div>
+
+                <div class="pt-3 border-t border-gray-100 flex gap-3">
+                    <button type="button" onclick="cerrarModalEditarColaborador()" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition text-sm">Cancelar</button>
+                    <button type="submit" id="btn-guardar-edicion" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition text-sm active:scale-95">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Guardar Cambios</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL: CONCEDER TOLERANCIA / JUSTIFICACIÓN DE GERENCIA -->
     <div id="modal-solicitud" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
@@ -1138,12 +1271,211 @@
                     </td>
                     <td class="px-5 py-3.5">${facialBadge}</td>
                     <td class="px-5 py-3.5 text-center">${estadoBadge}</td>
-                    <td class="px-5 py-3.5 text-center">${btnToggle}</td>
+                    <td class="px-5 py-3.5 text-center">
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button onclick="abrirModalEditarColaborador(${emp.id})" title="Editar datos y horario" class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors inline-flex items-center gap-1">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                <span>Editar</span>
+                            </button>
+                            ${btnToggle}
+                            <button onclick="eliminarColaborador(${emp.id}, '${emp.nombre_completo.replace(/'/g, "\\'")}')" title="Eliminar permanentemente" class="p-1 text-xs font-semibold rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors inline-flex items-center justify-center" aria-label="Eliminar colaborador">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
 
             lucide.createIcons();
+        }
+
+        function abrirModalEditarColaborador(id) {
+            const emp = listaEmpleadosAdmin.find(e => e.id === id);
+            if (!emp) {
+                mostrarToast('error', 'Colaborador no encontrado');
+                return;
+            }
+
+            document.getElementById('edit-id').value = emp.id;
+            document.getElementById('edit-nombre').value = emp.nombre_completo || '';
+            document.getElementById('edit-area').value = emp.area || 'Desarrollo de Software';
+            document.getElementById('edit-pin').value = '';
+
+            // Días laborables
+            const diasArr = (emp.dias_laborables || 'Lun, Mar, Mié, Jue, Vie, Sáb').split(',').map(d => d.trim());
+            const diasMap = {
+                'Lun': 'edit-dia-Lun',
+                'Mar': 'edit-dia-Mar',
+                'Mié': 'edit-dia-Mie',
+                'Jue': 'edit-dia-Jue',
+                'Vie': 'edit-dia-Vie',
+                'Sáb': 'edit-dia-Sab'
+            };
+
+            Object.entries(diasMap).forEach(([dia, elId]) => {
+                const checkEl = document.getElementById(elId);
+                if (checkEl) {
+                    checkEl.checked = diasArr.includes(dia);
+                }
+            });
+
+            // Horarios
+            document.getElementById('edit-hora-ingreso').value = emp.hora_ingreso ? emp.hora_ingreso.substring(0, 5) : '08:00';
+            document.getElementById('edit-hora-salida').value = emp.hora_salida ? emp.hora_salida.substring(0, 5) : '18:00';
+            document.getElementById('edit-hora-ingreso-sab').value = emp.hora_ingreso_sab ? emp.hora_ingreso_sab.substring(0, 5) : '08:00';
+            document.getElementById('edit-hora-salida-sab').value = emp.hora_salida_sab ? emp.hora_salida_sab.substring(0, 5) : '13:00';
+            document.getElementById('edit-inicio-refrigerio').value = emp.inicio_refrigerio ? emp.inicio_refrigerio.substring(0, 5) : '13:00';
+            document.getElementById('edit-fin-refrigerio').value = emp.fin_refrigerio ? emp.fin_refrigerio.substring(0, 5) : '15:00';
+
+            toggleEditSabado();
+
+            const modal = document.getElementById('modal-editar-colaborador');
+            if (modal) modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function cerrarModalEditarColaborador() {
+            const modal = document.getElementById('modal-editar-colaborador');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function toggleEditSabado() {
+            const sabCheck = document.getElementById('edit-dia-Sab');
+            const secSab = document.getElementById('edit-seccion-sabado');
+            if (sabCheck && secSab) {
+                if (sabCheck.checked) {
+                    secSab.classList.remove('hidden');
+                } else {
+                    secSab.classList.add('hidden');
+                }
+            }
+        }
+
+        function aplicarPresetJornada(tipo) {
+            const horaIngreso = document.getElementById('edit-hora-ingreso');
+            const horaSalida = document.getElementById('edit-hora-salida');
+            const inicioRef = document.getElementById('edit-inicio-refrigerio');
+            const finRef = document.getElementById('edit-fin-refrigerio');
+            const sabCheck = document.getElementById('edit-dia-Sab');
+
+            if (tipo === 'completo') {
+                horaIngreso.value = '08:00';
+                horaSalida.value = '18:00';
+                inicioRef.value = '13:00';
+                finRef.value = '15:00';
+                if (sabCheck) sabCheck.checked = true;
+                toggleEditSabado();
+                mostrarToast('info', 'Preset aplicado: Tiempo Completo (08:00 a 18:00)');
+            } else if (tipo === 'medio_manana') {
+                horaIngreso.value = '08:00';
+                horaSalida.value = '13:00';
+                inicioRef.value = '13:00';
+                finRef.value = '13:00';
+                if (sabCheck) sabCheck.checked = false;
+                toggleEditSabado();
+                mostrarToast('info', 'Preset aplicado: Medio Tiempo Mañana (08:00 a 13:00)');
+            } else if (tipo === 'medio_tarde') {
+                horaIngreso.value = '14:00';
+                horaSalida.value = '19:00';
+                inicioRef.value = '14:00';
+                finRef.value = '14:00';
+                if (sabCheck) sabCheck.checked = false;
+                toggleEditSabado();
+                mostrarToast('info', 'Preset aplicado: Medio Tiempo Tarde (14:00 a 19:00)');
+            }
+        }
+
+        async function guardarEdicionColaborador(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const btn = document.getElementById('btn-guardar-edicion');
+            
+            // Recoger días seleccionados
+            const diasSeleccionados = [];
+            if (document.getElementById('edit-dia-Lun')?.checked) diasSeleccionados.push('Lun');
+            if (document.getElementById('edit-dia-Mar')?.checked) diasSeleccionados.push('Mar');
+            if (document.getElementById('edit-dia-Mie')?.checked) diasSeleccionados.push('Mié');
+            if (document.getElementById('edit-dia-Jue')?.checked) diasSeleccionados.push('Jue');
+            if (document.getElementById('edit-dia-Vie')?.checked) diasSeleccionados.push('Vie');
+            if (document.getElementById('edit-dia-Sab')?.checked) diasSeleccionados.push('Sáb');
+
+            if (diasSeleccionados.length === 0) {
+                mostrarToast('error', 'Debes seleccionar al menos un día laborable.');
+                return;
+            }
+
+            const pinVal = document.getElementById('edit-pin').value.trim();
+            if (pinVal && !/^\d{4}$/.test(pinVal)) {
+                mostrarToast('error', 'El PIN debe tener exactamente 4 dígitos numéricos.');
+                return;
+            }
+
+            const payload = {
+                nombre_completo: document.getElementById('edit-nombre').value.trim(),
+                area: document.getElementById('edit-area').value,
+                dias_laborables: diasSeleccionados.join(', '),
+                hora_ingreso: document.getElementById('edit-hora-ingreso').value,
+                hora_salida: document.getElementById('edit-hora-salida').value,
+                hora_ingreso_sab: document.getElementById('edit-hora-ingreso-sab').value || '08:00',
+                hora_salida_sab: document.getElementById('edit-hora-salida-sab').value || '13:00',
+                inicio_refrigerio: document.getElementById('edit-inicio-refrigerio').value || '13:00',
+                fin_refrigerio: document.getElementById('edit-fin-refrigerio').value || '15:00'
+            };
+
+            if (pinVal) {
+                payload.codigo_pin = pinVal;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Guardando...`;
+                lucide.createIcons();
+
+                const res = await authFetch(`/api/empleados/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    mostrarToast('success', data.mensaje || 'Colaborador actualizado con éxito.');
+                    cerrarModalEditarColaborador();
+                    await cargarColaboradores();
+                } else {
+                    mostrarToast('error', data.error || 'No se pudo actualizar el colaborador.');
+                }
+            } catch (err) {
+                console.error('Error al actualizar colaborador:', err);
+                mostrarToast('error', 'Error al conectar con el servidor.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Guardar Cambios`;
+                lucide.createIcons();
+            }
+        }
+
+        async function eliminarColaborador(id, nombre) {
+            const confirmacion = confirm(`¿Estás seguro de que deseas ELIMINAR DEFINITIVAMENTE a "${nombre}"?\n\nEsta acción borrará al colaborador y todo su historial de asistencias y justificaciones asociadas de manera permanente.`);
+            if (!confirmacion) return;
+
+            try {
+                const res = await authFetch(`/api/empleados/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    mostrarToast('success', data.mensaje || 'Colaborador eliminado correctamente.');
+                    await cargarColaboradores();
+                } else {
+                    mostrarToast('error', data.error || 'No se pudo eliminar el colaborador.');
+                }
+            } catch (err) {
+                console.error('Error al eliminar colaborador:', err);
+                mostrarToast('error', 'Error al conectar con el servidor.');
+            }
         }
 
         async function toggleEstadoEmpleado(id) {

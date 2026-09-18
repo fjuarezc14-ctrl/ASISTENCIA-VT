@@ -224,6 +224,106 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
     }
 });
 
+// Endpoint 4: Actualizar / Modificar empleado (PROTEGIDO)
+app.put('/api/empleados/:id', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { 
+        nombre_completo, codigo_pin, face_descriptor, 
+        area, dias_laborables, 
+        hora_ingreso, hora_salida, 
+        hora_ingreso_sab, hora_salida_sab, 
+        inicio_refrigerio, fin_refrigerio 
+    } = req.body;
+
+    if (!nombre_completo) {
+        return res.status(400).json({ error: 'El nombre completo es obligatorio.' });
+    }
+
+    try {
+        const empCheck = await db.query('SELECT id, codigo_pin, face_descriptor FROM empleados WHERE id = $1', [id]);
+        if (empCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Empleado no encontrado.' });
+        }
+
+        let hashedPin = empCheck.rows[0].codigo_pin;
+        if (codigo_pin && codigo_pin.toString().trim().length === 4) {
+            const salt = await bcrypt.genSalt(10);
+            hashedPin = await bcrypt.hash(codigo_pin.toString().trim(), salt);
+        }
+
+        let faceDescriptorFinal = empCheck.rows[0].face_descriptor;
+        if (face_descriptor && Array.isArray(face_descriptor) && face_descriptor.length > 0) {
+            faceDescriptorFinal = JSON.stringify(face_descriptor);
+        } else if (typeof faceDescriptorFinal === 'object' && faceDescriptorFinal !== null) {
+            faceDescriptorFinal = JSON.stringify(faceDescriptorFinal);
+        }
+
+        const updateQuery = `
+            UPDATE empleados SET
+                nombre_completo = $1,
+                codigo_pin = $2,
+                face_descriptor = $3,
+                area = $4,
+                dias_laborables = $5,
+                hora_ingreso = $6,
+                hora_salida = $7,
+                hora_ingreso_sab = $8,
+                hora_salida_sab = $9,
+                inicio_refrigerio = $10,
+                fin_refrigerio = $11
+            WHERE id = $12
+            RETURNING id, nombre_completo, area, dias_laborables, hora_ingreso, hora_salida, activo
+        `;
+
+        const result = await db.query(updateQuery, [
+            nombre_completo.trim(),
+            hashedPin,
+            faceDescriptorFinal,
+            area || 'Desarrollo de Software',
+            dias_laborables || 'Lun, Mar, Mié, Jue, Vie',
+            hora_ingreso || '08:00',
+            hora_salida || '18:00',
+            hora_ingreso_sab || '08:00',
+            hora_salida_sab || '13:00',
+            inicio_refrigerio || '13:00',
+            fin_refrigerio || '15:00',
+            id
+        ]);
+
+        console.log(`✏️ Empleado actualizado: ${result.rows[0].nombre_completo} (ID: ${id})`);
+        res.json({
+            success: true,
+            mensaje: 'Colaborador actualizado correctamente',
+            empleado: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error('Error PUT /api/empleados/:id:', err);
+        res.status(500).json({ error: 'Error al actualizar el colaborador' });
+    }
+});
+
+// Endpoint 5: Eliminar permanentemente un empleado (PROTEGIDO)
+app.delete('/api/empleados/:id', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM empleados WHERE id = $1 RETURNING id, nombre_completo', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Empleado no encontrado.' });
+        }
+        const empEliminado = result.rows[0];
+        console.log(`🗑️ Empleado eliminado permanentemente: ${empEliminado.nombre_completo} (ID: ${empEliminado.id})`);
+        res.json({
+            success: true,
+            mensaje: `El colaborador "${empEliminado.nombre_completo}" ha sido eliminado del sistema con éxito.`,
+            empleado: empEliminado
+        });
+    } catch (err) {
+        console.error('Error DELETE /api/empleados/:id:', err);
+        res.status(500).json({ error: 'Error al eliminar el colaborador' });
+    }
+});
+
 // ==========================================================
 // ==========================================================
 // LÓGICA CENTRAL DE MARCACIÓN (2 ESTADOS: INGRESO / SALIDA)
