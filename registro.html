@@ -56,35 +56,92 @@
         </nav>
     </aside>
 
+    <!-- DRAWER / MENÚ LATERAL MÓVIL (< 768px) -->
+    <div id="drawer-mobile-backdrop" onclick="cerrarMenuMobile()" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"></div>
+    <aside id="drawer-mobile" class="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white z-50 shadow-2xl flex flex-col -translate-x-full transition-transform duration-300 ease-in-out md:hidden border-r border-gray-200">
+        <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+            <h1 class="text-xl font-black text-gray-900 flex items-center gap-2">
+                <span class="text-blue-600">VT</span> VALETEC
+            </h1>
+            <button onclick="cerrarMenuMobile()" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" aria-label="Cerrar menú">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" id="menu-lateral-mobile">
+            <p class="text-[11px] font-bold text-gray-400 mb-2 px-2 uppercase tracking-wider">Gestión HR</p>
+            
+            <button onclick="cambiarVistaMobile('inicio')" id="btn-mob-inicio" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold transition-colors">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Inicio / Panel
+            </button>
+            <button onclick="cambiarVistaMobile('colaboradores')" id="btn-mob-colaboradores" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="users" class="w-5 h-5"></i> Colaboradores
+            </button>
+            <button onclick="cambiarVistaMobile('documentos')" id="btn-mob-documentos" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="folder-open" class="w-5 h-5"></i> Documentos
+            </button>
+            <button onclick="cambiarVistaMobile('asistencias')" id="btn-mob-asistencias" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="calendar-clock" class="w-5 h-5"></i> Asistencias
+            </button>
+            <button onclick="cambiarVistaMobile('incidencias')" id="btn-mob-incidencias" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="user-x" class="w-5 h-5"></i> Faltas y Tardanzas
+            </button>
+            <button onclick="cambiarVistaMobile('permisos')" id="btn-mob-permisos" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="plane" class="w-5 h-5"></i> Vacaciones y Permisos
+            </button>
+            
+            <div class="pt-3 mt-3 border-t border-gray-100"></div>
+            <button onclick="cambiarVistaMobile('reportes')" id="btn-mob-reportes" class="w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">
+                <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Exportar Reportes
+            </button>
+
+            <div class="pt-3 mt-3 border-t border-gray-100"></div>
+            <p class="text-[10px] font-bold text-gray-400 mb-2 px-2 uppercase tracking-wider">Terminal de Marcación</p>
+            <a href="index.html" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm transition-all border border-blue-200 shadow-xs">
+                <i data-lucide="scan-face" class="w-5 h-5 text-blue-600"></i>
+                <span>Abrir Terminal</span>
+            </a>
+        </nav>
+        <div class="p-4 border-t border-gray-100">
+            <button onclick="cerrarSesionAdmin()" class="w-full flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2.5 rounded-xl text-xs font-bold transition">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Cerrar Sesión
+            </button>
+        </div>
+    </aside>
+
     <!-- CONTENIDO PRINCIPAL -->
     <main class="flex-1 flex flex-col h-screen overflow-y-auto">
-        <header class="bg-white border-b border-gray-200 px-6 sm:px-8 py-4 sm:py-5 flex justify-between items-center sticky top-0 z-10">
-            <div>
-                <h2 id="titulo-header" class="text-xl sm:text-2xl font-bold text-gray-800">Panel General</h2>
-                <p id="subtitulo-header" class="text-xs sm:text-sm text-gray-500 mt-0.5">Resumen del estado de la plantilla y operaciones</p>
+        <header class="bg-white border-b border-gray-200 px-4 sm:px-8 py-3.5 sm:py-5 flex justify-between items-center sticky top-0 z-10">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="toggleMenuMobile()" class="md:hidden p-2 -ml-1 rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition active:scale-95 focus:outline-none shrink-0" aria-label="Abrir menú">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <div class="min-w-0">
+                    <h2 id="titulo-header" class="text-lg sm:text-2xl font-bold text-gray-800 truncate">Panel General</h2>
+                    <p id="subtitulo-header" class="hidden sm:block text-xs sm:text-sm text-gray-500 mt-0.5 truncate">Resumen del estado de la plantilla y operaciones</p>
+                </div>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
                 <span id="fecha-header" class="hidden md:inline text-xs sm:text-sm font-medium text-gray-500"></span>
-                <a href="index.html" class="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm">
+                <a href="index.html" class="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition shadow-xs">
                     <i data-lucide="scan-face" class="w-4 h-4 text-blue-600"></i>
                     <span class="hidden sm:inline">Terminal</span>
                 </a>
-                <div class="w-9 h-9 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold shadow text-xs" title="Administrador Activo">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold shadow text-xs" title="Administrador Activo">
                     AD
                 </div>
-                <button onclick="cerrarSesionAdmin()" id="btn-logout" class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95">
+                <button onclick="cerrarSesionAdmin()" id="btn-logout" class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95">
                     <i data-lucide="log-out" class="w-4 h-4"></i>
-                    <span>Salir</span>
+                    <span class="hidden sm:inline">Salir</span>
                 </button>
             </div>
         </header>
 
-        <div class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+        <div class="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
             
             <!-- VISTA 1: INICIO (DASHBOARD) -->
             <div id="vista-inicio" class="vista-activa">
                 <!-- Se mantiene el Dashboard intacto -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 border-l-4 border-l-blue-500">
                         <div class="bg-blue-50 p-3 rounded-lg text-blue-600"><i data-lucide="users" class="w-6 h-6"></i></div>
                         <div>
@@ -873,6 +930,40 @@
 
         // NAVEGACIÓN Y VISTAS
         const vistas = ['inicio', 'colaboradores', 'documentos', 'asistencias', 'incidencias', 'permisos', 'reportes'];
+
+        function abrirMenuMobile() {
+            const drawer = document.getElementById('drawer-mobile');
+            const backdrop = document.getElementById('drawer-mobile-backdrop');
+            if (drawer && backdrop) {
+                backdrop.classList.remove('hidden');
+                drawer.classList.remove('-translate-x-full');
+            }
+            lucide.createIcons();
+        }
+
+        function cerrarMenuMobile() {
+            const drawer = document.getElementById('drawer-mobile');
+            const backdrop = document.getElementById('drawer-mobile-backdrop');
+            if (drawer && backdrop) {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function toggleMenuMobile() {
+            const drawer = document.getElementById('drawer-mobile');
+            if (drawer && drawer.classList.contains('-translate-x-full')) {
+                abrirMenuMobile();
+            } else {
+                cerrarMenuMobile();
+            }
+        }
+
+        function cambiarVistaMobile(vista) {
+            cerrarMenuMobile();
+            const btnDesktop = document.querySelector(`aside button[onclick*="'${vista}'"]`);
+            cambiarVista(vista, btnDesktop);
+        }
         
         function cambiarVista(vistaDestino, btnActivo) {
             vistas.forEach(v => {
@@ -885,7 +976,18 @@
             document.querySelectorAll('.menu-btn').forEach(b => {
                 b.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors';
             });
-            btnActivo.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-semibold transition-colors';
+            if (btnActivo) {
+                btnActivo.className = 'menu-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-semibold transition-colors';
+            }
+
+            // Sincronizar botones en el menú móvil
+            document.querySelectorAll('#menu-lateral-mobile button').forEach(b => {
+                b.className = 'w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors';
+            });
+            const btnMob = document.getElementById('btn-mob-' + vistaDestino);
+            if (btnMob) {
+                btnMob.className = 'w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold transition-colors';
+            }
 
             const titulos = {
                 'inicio': { t: 'Panel General', s: 'Resumen del estado de la plantilla y operaciones' },
