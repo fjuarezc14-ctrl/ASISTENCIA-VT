@@ -199,87 +199,69 @@
                 </div>
             </div>
 
-            <!-- VISTA NUEVA: DOCUMENTOS -->
+            <!-- VISTA NUEVA: DOCUMENTOS (100% DINÁMICO) -->
             <div id="vista-documentos" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Lista de Empleados para asignar documentos -->
-                    <div class="lg:col-span-1 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                        <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-blue-600"></i> Seleccionar Empleado</h4>
+                    <!-- Lista de Colaboradores para gestionar expediente -->
+                    <div class="lg:col-span-1 bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="font-bold text-gray-800 flex items-center gap-2">
+                                <i data-lucide="users" class="w-5 h-5 text-blue-600"></i>
+                                <span>Colaboradores</span>
+                            </h4>
+                            <span id="badge-total-docs-empleados" class="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">0</span>
+                        </div>
                         <div class="relative mb-4">
                             <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
-                            <input type="text" placeholder="Buscar..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="text" id="filtro-doc-empleados" oninput="filtrarEmpleadosDocumentos()" placeholder="Buscar colaborador o área..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
-                        <div class="space-y-2 max-h-96 overflow-y-auto">
-                            <button class="w-full text-left p-3 rounded-lg bg-blue-50 border border-blue-200 transition">
-                                <p class="font-bold text-blue-800 text-sm">Juan Pérez</p>
-                                <p class="text-xs text-blue-600">Operaciones Mina</p>
-                            </button>
-                            <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 transition text-gray-700">
-                                <p class="font-bold text-sm">María López</p>
-                                <p class="text-xs text-gray-500">Mantenimiento</p>
-                            </button>
+                        <div id="lista-empleados-documentos" class="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                            <!-- Poblado dinámicamente -->
+                            <div class="p-8 text-center text-gray-400">
+                                <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                                Cargando colaboradores...
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Panel de Carga de Documentos -->
-                    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                        <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                            <div>
-                                <h4 class="font-bold text-xl text-gray-900">Expediente: Juan Pérez</h4>
-                                <p class="text-sm text-gray-500">Gestiona los documentos personales del colaborador</p>
+                    <!-- Panel de Carga y Visualización de Expediente -->
+                    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
+                        <div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-4">
+                                <div>
+                                    <h4 id="doc-emp-nombre" class="font-bold text-xl text-gray-900">Seleccione un colaborador</h4>
+                                    <p id="doc-emp-area" class="text-sm text-gray-500">Expediente digital y documentos personales</p>
+                                </div>
+                                <div id="doc-emp-badge-container">
+                                    <span id="doc-emp-badge" class="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full border border-gray-200">
+                                        0/4 Documentos (0%)
+                                    </span>
+                                </div>
                             </div>
-                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">Expediente 66% Completo</span>
+
+                            <!-- Tarjetas de Documentos Requeridos -->
+                            <div class="space-y-4" id="contenedor-tarjetas-documentos">
+                                <!-- Poblado dinámicamente -->
+                            </div>
                         </div>
 
-                        <div class="space-y-4">
-                            <!-- CV -->
-                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-                                <div class="flex items-center gap-4">
-                                    <div class="bg-blue-100 p-3 rounded-lg text-blue-600"><i data-lucide="file-text" class="w-6 h-6"></i></div>
-                                    <div>
-                                        <p class="font-bold text-gray-800">Currículum Vitae (CV)</p>
-                                        <p class="text-xs text-gray-500">Última actualización: 12 Ago 2026</p>
-                                    </div>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button class="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> Ver</button>
-                                    <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Actualizar</button>
-                                </div>
-                            </div>
-                            
-                            <!-- DNI -->
-                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-                                <div class="flex items-center gap-4">
-                                    <div class="bg-indigo-100 p-3 rounded-lg text-indigo-600"><i data-lucide="credit-card" class="w-6 h-6"></i></div>
-                                    <div>
-                                        <p class="font-bold text-gray-800">DNI Escaneado</p>
-                                        <p class="text-xs text-gray-500">Última actualización: 12 Ago 2026</p>
-                                    </div>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button class="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> Ver</button>
-                                    <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Actualizar</button>
-                                </div>
-                            </div>
-
-                            <!-- Recibo -->
-                            <div class="flex items-center justify-between p-4 border border-amber-200 bg-amber-50 rounded-xl">
-                                <div class="flex items-center gap-4">
-                                    <div class="bg-amber-100 p-3 rounded-lg text-amber-600"><i data-lucide="receipt" class="w-6 h-6"></i></div>
-                                    <div>
-                                        <p class="font-bold text-gray-800">Recibo de Agua o Luz</p>
-                                        <p class="text-xs text-amber-600 font-semibold">Pendiente de subida</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm"><i data-lucide="upload" class="w-4 h-4"></i> Cargar Documento</button>
-                                    <input type="file" id="file-upload" class="hidden">
-                                </div>
-                            </div>
+                        <!-- Indicación de formatos admitidos -->
+                        <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
+                                Almacenamiento seguro en base de datos (PDF, PNG, JPG hasta 10MB)
+                            </span>
+                            <span id="doc-subiendo-loader" class="hidden text-blue-600 font-semibold flex items-center gap-1">
+                                <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Subiendo archivo...
+                            </span>
                         </div>
                     </div>
                 </div>
+
+                <!-- Input File Oculto Universal -->
+                <input type="file" id="input-archivo-documento" class="hidden" accept=".pdf,.png,.jpg,.jpeg" onchange="ejecutarSubidaDocumento(event)">
             </div>
+
 
             <!-- VISTA 3: ASISTENCIAS -->
             <div id="vista-asistencias" class="hidden">
@@ -914,6 +896,8 @@
 
             if (vistaDestino === 'colaboradores') {
                 cargarColaboradores();
+            } else if (vistaDestino === 'documentos') {
+                inicializarModuloDocumentos();
             } else if (vistaDestino === 'asistencias') {
                 cargarAsistencias();
             } else if (vistaDestino === 'inicio' || vistaDestino === 'incidencias') {
@@ -2027,6 +2011,358 @@
             }).join('');
 
             lucide.createIcons();
+        }
+
+        // ==========================================================
+        // MÓDULO DE EXPEDIENTES Y DOCUMENTOS DE PERSONAL (100% DINÁMICO)
+        // ==========================================================
+        let empleadoSeleccionadoDocsId = null;
+        let tipoDocumentoEnCarga = null;
+        let documentosEmpleadoActual = [];
+
+        const TIPOS_DOCUMENTOS_EXPEDIENTE = [
+            { tipo: 'CV', titulo: 'Currículum Vitae (CV)', descripcion: 'Hoja de vida actualizada del colaborador', icono: 'file-text', color: 'blue' },
+            { tipo: 'DNI', titulo: 'DNI Escaneado', descripcion: 'Copia legible de anverso y reverso', icono: 'credit-card', color: 'indigo' },
+            { tipo: 'RECIBO_SERVICIOS', titulo: 'Recibo de Servicios', descripcion: 'Comprobante de agua o luz del domicilio actual', icono: 'receipt', color: 'amber' },
+            { tipo: 'CONTRATO', titulo: 'Contrato Laboral Firmado', descripcion: 'Contrato de trabajo o convenio de prácticas vigente', icono: 'file-check', color: 'emerald' }
+        ];
+
+        function formatearBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const dm = 1;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function formatearFechaDoc(fechaISO) {
+            if (!fechaISO) return '';
+            const d = new Date(fechaISO);
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + 
+                   d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+
+        async function inicializarModuloDocumentos() {
+            if (!listaEmpleadosAdmin || listaEmpleadosAdmin.length === 0) {
+                try {
+                    const res = await authFetch('/api/empleados/admin');
+                    if (res.ok) {
+                        listaEmpleadosAdmin = await res.json();
+                    }
+                } catch (e) {
+                    console.error("Error al cargar empleados para módulo documentos:", e);
+                }
+            }
+
+            const badgeTotal = document.getElementById('badge-total-docs-empleados');
+            if (badgeTotal) badgeTotal.textContent = listaEmpleadosAdmin.length;
+
+            renderizarListaEmpleadosDocumentos(listaEmpleadosAdmin);
+
+            if (listaEmpleadosAdmin.length > 0) {
+                if (!empleadoSeleccionadoDocsId || !listaEmpleadosAdmin.find(e => e.id === empleadoSeleccionadoDocsId)) {
+                    seleccionarEmpleadoDocumentos(listaEmpleadosAdmin[0].id);
+                } else {
+                    seleccionarEmpleadoDocumentos(empleadoSeleccionadoDocsId);
+                }
+            } else {
+                document.getElementById('doc-emp-nombre').textContent = 'No hay colaboradores registrados';
+                document.getElementById('doc-emp-area').textContent = 'Registre un colaborador en la pestaña de Colaboradores';
+                document.getElementById('contenedor-tarjetas-documentos').innerHTML = `
+                    <div class="p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-gray-200">
+                        <i data-lucide="folder-open" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
+                        <p class="text-sm font-semibold text-gray-600">No hay colaboradores activos en el sistema.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function filtrarEmpleadosDocumentos() {
+            const query = (document.getElementById('filtro-doc-empleados')?.value || '').toLowerCase().trim();
+            const filtrados = listaEmpleadosAdmin.filter(emp => 
+                emp.nombre_completo.toLowerCase().includes(query) || 
+                (emp.area || '').toLowerCase().includes(query)
+            );
+            renderizarListaEmpleadosDocumentos(filtrados);
+        }
+
+        function renderizarListaEmpleadosDocumentos(lista) {
+            const cont = document.getElementById('lista-empleados-documentos');
+            if (!cont) return;
+
+            if (lista.length === 0) {
+                cont.innerHTML = `
+                    <div class="p-6 text-center text-gray-400 text-sm">
+                        No se encontraron colaboradores.
+                    </div>
+                `;
+                return;
+            }
+
+            cont.innerHTML = lista.map(emp => {
+                const esActivo = emp.id === empleadoSeleccionadoDocsId;
+                const claseBoton = esActivo
+                    ? 'w-full text-left p-3 rounded-xl bg-blue-50 border-2 border-blue-500 shadow-sm transition'
+                    : 'w-full text-left p-3 rounded-xl hover:bg-gray-50 border border-gray-100 hover:border-gray-200 transition text-gray-700';
+                
+                const claseNombre = esActivo ? 'font-bold text-blue-900 text-sm' : 'font-semibold text-gray-800 text-sm';
+                const claseArea = esActivo ? 'text-xs text-blue-600 font-medium' : 'text-xs text-gray-400';
+
+                return `
+                    <button onclick="seleccionarEmpleadoDocumentos(${emp.id})" class="${claseBoton}">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="${claseNombre}">${emp.nombre_completo}</p>
+                                <p class="${claseArea}">${emp.area || 'General'}</p>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 ${esActivo ? 'text-blue-600' : 'text-gray-300'}"></i>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        async function seleccionarEmpleadoDocumentos(empId) {
+            empleadoSeleccionadoDocsId = empId;
+            const emp = listaEmpleadosAdmin.find(e => e.id === empId);
+            if (!emp) return;
+
+            const query = (document.getElementById('filtro-doc-empleados')?.value || '').toLowerCase().trim();
+            const listaFiltrada = listaEmpleadosAdmin.filter(e => 
+                e.nombre_completo.toLowerCase().includes(query) || 
+                (e.area || '').toLowerCase().includes(query)
+            );
+            renderizarListaEmpleadosDocumentos(listaFiltrada);
+
+            const elemNombre = document.getElementById('doc-emp-nombre');
+            const elemArea = document.getElementById('doc-emp-area');
+            if (elemNombre) elemNombre.textContent = `Expediente: ${emp.nombre_completo}`;
+            if (elemArea) elemArea.textContent = `Área: ${emp.area || 'General'} • Horario: ${emp.hora_ingreso || '08:00'} - ${emp.hora_salida || '18:00'}`;
+
+            await cargarDocumentosEmpleado(empId);
+        }
+
+        async function cargarDocumentosEmpleado(empId) {
+            const cont = document.getElementById('contenedor-tarjetas-documentos');
+            if (!cont) return;
+
+            cont.innerHTML = `
+                <div class="p-8 text-center text-gray-400">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                    Cargando expediente...
+                </div>
+            `;
+            lucide.createIcons();
+
+            try {
+                const res = await authFetch(`/api/empleados/${empId}/documentos`);
+                if (!res.ok) throw new Error('Error al consultar documentos');
+                documentosEmpleadoActual = await res.json();
+
+                renderizarTarjetasDocumentos(documentosEmpleadoActual);
+            } catch (err) {
+                console.error("Error al cargar documentos:", err);
+                cont.innerHTML = `
+                    <div class="p-6 text-center text-rose-500 bg-rose-50 rounded-xl border border-rose-100">
+                        <i data-lucide="alert-circle" class="w-6 h-6 mx-auto mb-2"></i>
+                        Error al cargar los documentos del colaborador.
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function renderizarTarjetasDocumentos(docs) {
+            const cont = document.getElementById('contenedor-tarjetas-documentos');
+            if (!cont) return;
+
+            const docsMap = {};
+            docs.forEach(d => {
+                docsMap[d.tipo_documento] = d;
+            });
+
+            let subidosCount = 0;
+
+            const htmlCards = TIPOS_DOCUMENTOS_EXPEDIENTE.map(tipoObj => {
+                const doc = docsMap[tipoObj.tipo];
+                if (doc) subidosCount++;
+
+                const colorBg = tipoObj.color === 'blue' ? 'bg-blue-100 text-blue-600' :
+                                tipoObj.color === 'indigo' ? 'bg-indigo-100 text-indigo-600' :
+                                tipoObj.color === 'amber' ? 'bg-amber-100 text-amber-600' :
+                                'bg-emerald-100 text-emerald-600';
+
+                if (doc) {
+                    return `
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-gray-200 hover:border-blue-200 rounded-xl transition bg-white shadow-xs gap-3">
+                            <div class="flex items-center gap-3.5">
+                                <div class="${colorBg} p-3 rounded-xl">
+                                    <i data-lucide="${tipoObj.icono}" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800 text-sm">${tipoObj.titulo}</p>
+                                    <p class="text-xs text-gray-500 font-medium">${doc.nombre_archivo} • <span class="text-gray-400">${formatearBytes(doc.tamano_bytes)}</span></p>
+                                    <p class="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
+                                        <i data-lucide="check-circle" class="w-3.5 h-3.5 inline"></i> Subido: ${formatearFechaDoc(doc.subido_en)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 self-end sm:self-center">
+                                <button onclick="descargarDocumento(${doc.id})" title="Ver o descargar archivo" class="text-blue-600 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active:scale-95">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver / Descargar
+                                </button>
+                                <button onclick="prepararSubidaDocumento('${tipoObj.tipo}')" title="Reemplazar por una versión más reciente" class="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active:scale-95">
+                                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> Actualizar
+                                </button>
+                                <button onclick="eliminarDocumento(${doc.id}, '${tipoObj.titulo}')" title="Eliminar documento del expediente" class="text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 p-1.5 rounded-lg text-xs transition active:scale-95">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-dashed border-amber-200 bg-amber-50/50 rounded-xl transition gap-3">
+                            <div class="flex items-center gap-3.5">
+                                <div class="${colorBg} p-3 rounded-xl opacity-75">
+                                    <i data-lucide="${tipoObj.icono}" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-800 text-sm">${tipoObj.titulo}</p>
+                                    <p class="text-xs text-gray-500">${tipoObj.descripcion}</p>
+                                    <p class="text-[11px] text-amber-700 font-semibold flex items-center gap-1 mt-0.5">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5 inline"></i> Pendiente de subida
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="self-end sm:self-center">
+                                <button onclick="prepararSubidaDocumento('${tipoObj.tipo}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-sm active:scale-95">
+                                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> Cargar Documento
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            cont.innerHTML = htmlCards;
+
+            const totalDocs = TIPOS_DOCUMENTOS_EXPEDIENTE.length;
+            const pct = Math.round((subidosCount / totalDocs) * 100);
+            const badge = document.getElementById('doc-emp-badge');
+            if (badge) {
+                badge.textContent = `${subidosCount}/${totalDocs} Documentos (${pct}% Completo)`;
+                if (pct === 100) {
+                    badge.className = 'bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200';
+                } else if (pct >= 50) {
+                    badge.className = 'bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full border border-blue-200';
+                } else {
+                    badge.className = 'bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-full border border-amber-200';
+                }
+            }
+
+            lucide.createIcons();
+        }
+
+        function prepararSubidaDocumento(tipoDoc) {
+            if (!empleadoSeleccionadoDocsId) {
+                mostrarToast('error', 'Seleccione primero un colaborador.');
+                return;
+            }
+            tipoDocumentoEnCarga = tipoDoc;
+            const input = document.getElementById('input-archivo-documento');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        async function ejecutarSubidaDocumento(event) {
+            const file = event.target.files[0];
+            if (!file || !empleadoSeleccionadoDocsId || !tipoDocumentoEnCarga) return;
+
+            if (file.size > 10 * 1024 * 1024) {
+                mostrarToast('error', 'El archivo supera el tamaño máximo permitido de 10 MB.');
+                return;
+            }
+
+            const loader = document.getElementById('doc-subiendo-loader');
+            if (loader) loader.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64Content = e.target.result;
+
+                try {
+                    const res = await authFetch(`/api/empleados/${empleadoSeleccionadoDocsId}/documentos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tipo_documento: tipoDocumentoEnCarga,
+                            nombre_archivo: file.name,
+                            mime_type: file.type || 'application/octet-stream',
+                            tamano_bytes: file.size,
+                            archivo_base64: base64Content
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (res.ok) {
+                        mostrarToast('success', 'Documento cargado correctamente.');
+                        await cargarDocumentosEmpleado(empleadoSeleccionadoDocsId);
+                    } else {
+                        mostrarToast('error', data.error || 'Error al subir documento');
+                    }
+                } catch (err) {
+                    console.error("Error en subida:", err);
+                    mostrarToast('error', 'Error al procesar la subida del documento');
+                } finally {
+                    if (loader) loader.classList.add('hidden');
+                    tipoDocumentoEnCarga = null;
+                }
+            };
+
+            reader.onerror = function() {
+                if (loader) loader.classList.add('hidden');
+                mostrarToast('error', 'Error al leer el archivo en el navegador.');
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        function descargarDocumento(docId) {
+            const token = obtenerTokenAdmin();
+            if (!token) {
+                mostrarModalLogin();
+                return;
+            }
+            window.open(`/api/documentos/${docId}/descargar?token=${encodeURIComponent(token)}`, '_blank');
+        }
+
+        async function eliminarDocumento(docId, tipoNombre) {
+            if (!confirm(`¿Está seguro de eliminar el archivo de "${tipoNombre}" de este expediente?`)) {
+                return;
+            }
+
+            try {
+                const res = await authFetch(`/api/documentos/${docId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarToast('success', 'Documento eliminado del expediente.');
+                    await cargarDocumentosEmpleado(empleadoSeleccionadoDocsId);
+                } else {
+                    mostrarToast('error', data.error || 'Error al eliminar');
+                }
+            } catch (err) {
+                console.error("Error al eliminar documento:", err);
+                mostrarToast('error', 'Error al conectar con el servidor.');
+            }
         }
         
         lucide.createIcons();

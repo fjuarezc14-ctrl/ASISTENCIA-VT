@@ -61,3 +61,18 @@ CREATE INDEX IF NOT EXISTS idx_justif_empleado_fecha
 CREATE INDEX IF NOT EXISTS idx_justif_asistencia 
     ON justificaciones_asistencia(asistencia_id);
 
+-- 5. Tabla de Documentos y Expedientes de Empleados
+CREATE TABLE IF NOT EXISTS documentos_empleado (
+    id SERIAL PRIMARY KEY,
+    empleado_id INTEGER REFERENCES empleados(id) ON DELETE CASCADE,
+    tipo_documento VARCHAR(50) NOT NULL, -- 'CV', 'DNI', 'RECIBO_SERVICIOS', 'CONTRATO', 'OTRO'
+    nombre_archivo VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    tamano_bytes INTEGER NOT NULL,
+    archivo_base64 TEXT NOT NULL,
+    subido_por VARCHAR(100) DEFAULT 'Gerencia',
+    subido_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_docs_empleado 
+    ON documentos_empleado(empleado_id);

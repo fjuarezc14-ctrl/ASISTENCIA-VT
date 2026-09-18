@@ -38,7 +38,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // ==========================================================
 // MIDDLEWARE DE AUTENTICACIÓN ADMINISTRATIVA (JWT)
@@ -665,6 +666,121 @@ app.delete('/api/justificaciones/:id', verificarAdmin, async (req, res) => {
     } catch (err) {
         console.error('Error DELETE /api/justificaciones/:id:', err);
         res.status(500).json({ error: 'Error al revocar la justificación' });
+    }
+});
+
+// ==========================================================
+// GESTIÓN DE EXPEDIENTES Y DOCUMENTOS DE EMPLEADOS (PROTEGIDO)
+// ==========================================================
+
+// 1. Obtener lista de documentos de un empleado (sin el binario pesado)
+app.get('/api/empleados/:id/documentos', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const query = `
+            SELECT id, empleado_id, tipo_documento, nombre_archivo, mime_type, tamano_bytes, subido_por, subido_en
+            FROM documentos_empleado
+            WHERE empleado_id = $1
+            ORDER BY subido_en DESC
+        `;
+        const result = await db.query(query, [id]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error GET /api/empleados/:id/documentos:', err);
+        res.status(500).json({ error: 'Error al obtener documentos del colaborador' });
+    }
+});
+
+// 2. Subir o actualizar documento de un empleado
+app.post('/api/empleados/:id/documentos', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { tipo_documento, nombre_archivo, mime_type, tamano_bytes, archivo_base64 } = req.body;
+
+    if (!tipo_documento || !nombre_archivo || !archivo_base64) {
+        return res.status(400).json({ error: 'Faltan campos requeridos (tipo_documento, nombre_archivo, archivo_base64).' });
+    }
+
+    try {
+        const empCheck = await db.query('SELECT id, nombre_completo FROM empleados WHERE id = $1', [id]);
+        if (empCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'El colaborador no existe.' });
+        }
+
+        const subidoPor = req.admin?.username || 'Gerencia';
+
+        // Si es uno de los tipos estándar (CV, DNI, RECIBO_SERVICIOS, CONTRATO), reemplazar documento previo
+        if (['CV', 'DNI', 'RECIBO_SERVICIOS', 'CONTRATO'].includes(tipo_documento)) {
+            await db.query('DELETE FROM documentos_empleado WHERE empleado_id = $1 AND tipo_documento = $2', [id, tipo_documento]);
+        }
+
+        const insertQuery = `
+            INSERT INTO documentos_empleado (
+                empleado_id, tipo_documento, nombre_archivo, mime_type, tamano_bytes, archivo_base64, subido_por
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, empleado_id, tipo_documento, nombre_archivo, mime_type, tamano_bytes, subido_por, subido_en
+        `;
+
+        const result = await db.query(insertQuery, [
+            id,
+            tipo_documento,
+            nombre_archivo,
+            mime_type || 'application/octet-stream',
+            tamano_bytes || 0,
+            archivo_base64,
+            subidoPor
+        ]);
+
+        res.status(201).json({
+            success: true,
+            mensaje: 'Documento subido correctamente.',
+            documento: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error POST /api/empleados/:id/documentos:', err);
+        res.status(500).json({ error: 'Error al subir el documento' });
+    }
+});
+
+// 3. Descargar / Visualizar documento
+app.get('/api/documentos/:id/descargar', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('SELECT * FROM documentos_empleado WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Documento no encontrado' });
+        }
+
+        const doc = result.rows[0];
+        let rawBase64 = doc.archivo_base64;
+        if (rawBase64.includes('base64,')) {
+            rawBase64 = rawBase64.split('base64,')[1];
+        }
+
+        const fileBuffer = Buffer.from(rawBase64, 'base64');
+        const encodedFilename = encodeURIComponent(doc.nombre_archivo);
+
+        res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`);
+        res.setHeader('Content-Length', fileBuffer.length);
+        res.end(fileBuffer);
+    } catch (err) {
+        console.error('Error GET /api/documentos/:id/descargar:', err);
+        res.status(500).json({ error: 'Error al descargar documento' });
+    }
+});
+
+// 4. Eliminar documento
+app.delete('/api/documentos/:id', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM documentos_empleado WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Documento no encontrado.' });
+        }
+        res.json({ success: true, mensaje: 'Documento eliminado correctamente.' });
+    } catch (err) {
+        console.error('Error DELETE /api/documentos/:id:', err);
+        res.status(500).json({ error: 'Error al eliminar el documento' });
     }
 });
 
