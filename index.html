@@ -14,8 +14,8 @@
     <link rel="apple-touch-icon" href="icono-192.png">
 
     <style>
-        #canvas-ia { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
-        #video-camara { z-index: 0; }
+        #canvas-ia { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; transform: scaleX(-1); -webkit-transform: scaleX(-1); }
+        #video-camara { z-index: 0; transform: scaleX(-1); -webkit-transform: scaleX(-1); }
         .z-guia { z-index: 20; }
         @keyframes popIn {
             0% { transform: scale(0.9); opacity: 0; }
@@ -105,6 +105,12 @@
 
             <!-- MÓDULO A: RECONOCIMIENTO FACIAL -->
             <div id="contenedor-rostro" class="hidden w-full aspect-square max-h-[350px] bg-slate-950 rounded-3xl border-4 border-slate-800 relative flex flex-col items-center justify-center overflow-hidden shadow-2xl transition-all duration-300">
+                <!-- BOTÓN MODO ESPEJO (MOVIMIENTO NATURAL) -->
+                <button type="button" id="btn-toggle-espejo" onclick="toggleModoEspejo()" class="absolute top-3 right-3 z-30 p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-blue-400 border border-slate-700/60 shadow backdrop-blur-sm transition-all active:scale-95 text-xs flex items-center gap-1.5" title="Modo espejo (Dirección natural de movimiento)">
+                    <i data-lucide="flip-horizontal" class="w-4 h-4"></i>
+                    <span class="text-[11px] font-medium hidden sm:inline">Espejo</span>
+                </button>
+
                 <video id="video-camara" class="absolute inset-0 w-full h-full object-cover" autoplay muted playsinline></video>
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent z-10"></div>
                 
@@ -286,6 +292,33 @@
         let intervalDetection = null;
         let modelsLoaded = false;
         
+        // Modo Espejo (Por defecto true para movimiento natural tipo espejo frontal)
+        let modoEspejo = localStorage.getItem('vt_modo_espejo') !== 'false';
+
+        function aplicarModoEspejo() {
+            const transformVal = modoEspejo ? 'scaleX(-1)' : 'scaleX(1)';
+            if (video) video.style.transform = transformVal;
+            if (canvasIA) canvasIA.style.transform = transformVal;
+            const btn = document.getElementById('btn-toggle-espejo');
+            if (btn) {
+                if (modoEspejo) {
+                    btn.classList.add('text-blue-400', 'border-blue-500/40');
+                    btn.classList.remove('text-slate-400', 'border-slate-700/60');
+                    btn.title = "Modo espejo activado (Movimiento natural: derecha es derecha)";
+                } else {
+                    btn.classList.remove('text-blue-400', 'border-blue-500/40');
+                    btn.classList.add('text-slate-400', 'border-slate-700/60');
+                    btn.title = "Modo normal activado (Sin invertir cámara)";
+                }
+            }
+        }
+
+        function toggleModoEspejo() {
+            modoEspejo = !modoEspejo;
+            localStorage.setItem('vt_modo_espejo', modoEspejo);
+            aplicarModoEspejo();
+        }
+        
         let listaEmpleados = [];
         let faceMatcher = null;
 
@@ -351,6 +384,7 @@
                     video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }
                 });
                 video.srcObject = streamCamara;
+                aplicarModoEspejo();
                 const iconoCarga = document.getElementById('icono-carga');
                 if (iconoCarga) iconoCarga.classList.add('hidden');
             } catch (error) {
@@ -378,6 +412,7 @@
                 canvasIA.id = "canvas-ia";
                 document.getElementById('contenedor-rostro').appendChild(canvasIA);
             }
+            aplicarModoEspejo();
             
             const iconoCarga = document.getElementById('icono-carga');
             const ovalo = document.getElementById('ovalo-guia');
@@ -665,6 +700,7 @@
         // INICIALIZACIÓN AL CARGAR
         // =====================================
         window.addEventListener('load', async () => {
+            aplicarModoEspejo();
             await descargarEmpleados();    
             await cargarModelosSilencioso(); 
         });
