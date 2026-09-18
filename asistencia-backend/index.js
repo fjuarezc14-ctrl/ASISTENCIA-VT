@@ -227,8 +227,158 @@ app.post('/api/empleados', verificarAdmin, async (req, res) => {
 // ==========================================================
 // ==========================================================
 // LÓGICA CENTRAL DE MARCACIÓN (2 ESTADOS: INGRESO / SALIDA)
+// ==========================================================
 // CÁLCULO INTELIGENTE DE HORAS EFECTIVAS Y DESCUENTO DE REFRIGERIO
 // ==========================================================
+function calcularHorasEfectivas(fechaIngreso, fechaSalida, emp, diaSemana) {
+    const difMs = fechaSalida.getTime() - fechaIngreso.getTime();
+    const minutosTotales = Math.max(0, Math.round(difMs / (1000 * 60)));
+
+    let minutosDescuentoRefrigerio = 0;
+    // Si es sábado (diaSemana === 6), es medio turno: NO se descuenta almuerzo
+    if (diaSemana !== 6) {
+        // Lunes a Viernes: calcular duración de refrigerio pactada (default 120 min = 2 horas)
+        let duracionRefrigerio = 120;
+        if (emp?.inicio_refrigerio && emp?.fin_refrigerio) {
+            const [hI, mI] = emp.inicio_refrigerio.split(':').map(Number);
+            const [hF, mF] = emp.fin_refrigerio.split(':').map(Number);
+            const calc = (hF * 60 + mF) - (hI * 60 + mI);
+            if (calc > 0) duracionRefrigerio = calc;
+        }
+
+        // Solo descontar si la jornada fue de 5 horas o más (300 minutos)
+        if (minutosTotales >= 300) {
+            minutosDescuentoRefrigerio = duracionRefrigerio;
+        }
+    }
+
+    const minutosNetos = Math.max(0, minutosTotales - minutosDescuentoRefrigerio);
+    const h = Math.floor(minutosNetos / 60);
+    const m = minutosNetos % 60;
+    const horasTrabajadasTexto = `${h}h ${m}m`;
+
+    return { minutosTotales, minutosDescuentoRefrigerio, minutosNetos, horasTrabajadasTexto };
+}
+
+function calcularFechaSalidaAuto(fechaIngreso, emp) {
+    const fechaIngresoPeru = new Date(fechaIngreso.getTime() - (5 * 60 * 60 * 1000));
+    const anioP = fechaIngresoPeru.getUTCFullYear();
+    const mesP = String(fechaIngresoPeru.getUTCMonth() + 1).padStart(2, '0');
+    const diaP = String(fechaIngresoPeru.getUTCDate()).padStart(2, '0');
+    const diaSemana = fechaIngresoPeru.getUTCDay(); // 0: Dom, 6: Sáb
+
+    // Lunes a Viernes: 20:00 (8:00 PM). Sábado: hora_salida_sab (por defecto 13:00)
+    let horaSalidaTarget = diaSemana === 6 ? (emp?.hora_salida_sab || '13:00') : '20:00';
+    const [hS, mS] = horaSalidaTarget.split(':').map(Number);
+    const hSStr = String(hS).padStart(2, '0');
+    const mSStr = String(mS || 0).padStart(2, '0');
+
+    // Construcción exacta en hora local de Perú (-05:00)
+    let fechaSalida = new Date(`${anioP}-${mesP}-${diaP}T${hSStr}:${mSStr}:00-05:00`);
+
+    // Si el ingreso fue posterior a esa hora, fijar salida 15 minutos después del ingreso
+    if (fechaSalida.getTime() <= fechaIngreso.getTime()) {
+        fechaSalida = new Date(fechaIngreso.getTime() + 15 * 60 * 1000);
+    }
+
+    return { fechaSalida, diaSemana };
+}
+
+async function ejecutarAutoCierreJornadas(forzarTodo = false) {
+    const ahora = new Date();
+    const ahoraPeru = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
+    const horaActualLima = ahoraPeru.getUTCHours();
+
+    const query = `
+        SELECT DISTINCT ON (ra.empleado_id)
+            ra.id AS ultima_asistencia_id,
+            ra.empleado_id,
+            ra.tipo,
+            ra.fecha_hora_marcacion,
+            e.nombre_completo,
+            e.area,
+            e.dias_laborables,
+            e.hora_ingreso,
+            e.hora_salida,
+            e.hora_ingreso_sab,
+            e.hora_salida_sab,
+            e.inicio_refrigerio,
+            e.fin_refrigerio
+        FROM registros_asistencia ra
+        JOIN empleados e ON e.id = ra.empleado_id
+        WHERE e.activo = TRUE
+        ORDER BY ra.empleado_id, ra.fecha_hora_marcacion DESC
+    `;
+
+    const result = await db.query(query);
+    const jornadasAbiertas = result.rows.filter(r => r.tipo === 'INGRESO');
+    const cerradas = [];
+
+    for (const r of jornadasAbiertas) {
+        const fechaIngreso = new Date(r.fecha_hora_marcacion);
+        const fechaIngresoPeru = new Date(fechaIngreso.getTime() - (5 * 60 * 60 * 1000));
+
+        const esMismoDia = fechaIngresoPeru.getUTCFullYear() === ahoraPeru.getUTCFullYear() &&
+                           fechaIngresoPeru.getUTCMonth() === ahoraPeru.getUTCMonth() &&
+                           fechaIngresoPeru.getUTCDate() === ahoraPeru.getUTCDate();
+
+        const diaSemanaIngreso = fechaIngresoPeru.getUTCDay();
+
+        let debeCerrar = false;
+        if (!esMismoDia) {
+            // Turno de día anterior que quedó abierto
+            debeCerrar = true;
+        } else if (forzarTodo) {
+            // Cierre forzado manual desde el panel
+            debeCerrar = true;
+        } else if (diaSemanaIngreso === 6 && horaActualLima >= 14) {
+            // Sábado después de las 2:00 PM
+            debeCerrar = true;
+        } else if (horaActualLima >= 20) {
+            // Lunes a viernes a partir de las 8:00 PM (20:00)
+            debeCerrar = true;
+        }
+
+        if (debeCerrar) {
+            const { fechaSalida, diaSemana } = calcularFechaSalidaAuto(fechaIngreso, r);
+            const calculo = calcularHorasEfectivas(fechaIngreso, fechaSalida, r, diaSemana);
+            const horasTexto = `${calculo.horasTrabajadasTexto} (Auto)`;
+
+            const insertQuery = `
+                INSERT INTO registros_asistencia (
+                    empleado_id, metodo, tipo, horas_trabajadas, minutos_netos, fecha_hora_marcacion
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id, empleado_id, fecha_hora_marcacion, horas_trabajadas, minutos_netos
+            `;
+
+            const insRes = await db.query(insertQuery, [
+                r.empleado_id,
+                'SISTEMA_AUTO',
+                'SALIDA',
+                horasTexto,
+                calculo.minutosNetos,
+                fechaSalida
+            ]);
+
+            cerradas.push({
+                empleado_id: r.empleado_id,
+                nombre_completo: r.nombre_completo,
+                fecha_ingreso: r.fecha_hora_marcacion,
+                fecha_salida: fechaSalida,
+                horas_trabajadas: horasTexto,
+                minutos_netos: calculo.minutosNetos,
+                asistencia_id: insRes.rows[0]?.id
+            });
+        }
+    }
+
+    if (cerradas.length > 0) {
+        console.log(`⏱️ [AUTO-CIERRE] Se cerraron automáticamente ${cerradas.length} jornada(s) abierta(s).`);
+    }
+
+    return cerradas;
+}
+
 async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
     const lastMarkQuery = `
         SELECT tipo, fecha_hora_marcacion 
@@ -322,15 +472,21 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
 
         // 4. AUTO-CIERRE de turno anterior por omisión si quedó abierto ayer
         if (!esMismoDia && ultimaMarcacion.tipo === 'INGRESO' && tipoAsistencia === 'INGRESO') {
-            const fechaSalidaAutomatica = new Date(fechaUltima);
-            fechaSalidaAutomatica.setHours(20, 0, 0, 0); // 8:00 PM del día del turno abierto
-            
+            const empPrevioRes = await db.query(`
+                SELECT hora_salida_sab, inicio_refrigerio, fin_refrigerio 
+                FROM empleados WHERE id = $1
+            `, [empleadoId]);
+            const empPrevio = empPrevioRes.rows[0];
+            const { fechaSalida, diaSemana: diaSemPrevio } = calcularFechaSalidaAuto(fechaUltima, empPrevio);
+            const calcPrevio = calcularHorasEfectivas(fechaUltima, fechaSalida, empPrevio, diaSemPrevio);
+            const horasTextoPrevio = `${calcPrevio.horasTrabajadasTexto} (Auto)`;
+
             const autoSalidaQuery = `
                 INSERT INTO registros_asistencia (empleado_id, metodo, tipo, horas_trabajadas, minutos_netos, fecha_hora_marcacion) 
                 VALUES ($1, $2, $3, $4, $5, $6)
             `;
-            await db.query(autoSalidaQuery, [empleadoId, 'SISTEMA_AUTO', 'SALIDA', 'Turno cerrado auto', null, fechaSalidaAutomatica]);
-            mensajeExtra = ' (Aviso: Se cerró automáticamente tu turno de ayer por omisión)';
+            await db.query(autoSalidaQuery, [empleadoId, 'SISTEMA_AUTO', 'SALIDA', horasTextoPrevio, calcPrevio.minutosNetos, fechaSalida]);
+            mensajeExtra = ' (Aviso: Se cerró automáticamente tu turno anterior por omisión)';
         }
     }
 
@@ -361,31 +517,9 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
         
         if (ingresoResult.rows.length > 0) {
             const fechaIngreso = new Date(ingresoResult.rows[0].fecha_hora_marcacion);
-            const difMs = ahora.getTime() - fechaIngreso.getTime();
-            const minutosTotales = Math.max(0, Math.round(difMs / (1000 * 60)));
-
-            let minutosDescuentoRefrigerio = 0;
-            // Si es sábado (diaSemana === 6), es medio turno: NO se descuenta almuerzo
-            if (diaSemana !== 6) {
-                // Lunes a Viernes: calcular duración de refrigerio pactada (default 120 min = 2 horas)
-                let duracionRefrigerio = 120;
-                if (emp?.inicio_refrigerio && emp?.fin_refrigerio) {
-                    const [hI, mI] = emp.inicio_refrigerio.split(':').map(Number);
-                    const [hF, mF] = emp.fin_refrigerio.split(':').map(Number);
-                    const calc = (hF * 60 + mF) - (hI * 60 + mI);
-                    if (calc > 0) duracionRefrigerio = calc;
-                }
-
-                // Solo descontar si la jornada fue de 5 horas o más (300 minutos)
-                if (minutosTotales >= 300) {
-                    minutosDescuentoRefrigerio = duracionRefrigerio;
-                }
-            }
-
-            minutosNetos = Math.max(0, minutosTotales - minutosDescuentoRefrigerio);
-            const h = Math.floor(minutosNetos / 60);
-            const m = minutosNetos % 60;
-            horasTrabajadasTexto = `${h}h ${m}m`;
+            const calculo = calcularHorasEfectivas(fechaIngreso, ahora, emp, diaSemana);
+            minutosNetos = calculo.minutosNetos;
+            horasTrabajadasTexto = calculo.horasTrabajadasTexto;
 
             mensajeConfirmacion = `¡Hasta luego, ${nombreColaborador}! Salida registrada. Tiempo efectivo de hoy: ${horasTrabajadasTexto}.${mensajeExtra}`;
         } else {
@@ -1190,7 +1324,9 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
                 minTardanza,
                 puntualidadStr,
                 r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO'),
-                tieneJustificacion ? (r.motivo_justificacion || 'Autorizado por Gerencia') : ''
+                tieneJustificacion 
+                    ? (r.motivo_justificacion || 'Autorizado por Gerencia') 
+                    : (r.metodo === 'SISTEMA_AUTO' ? 'Salida registrada automáticamente por el sistema (Cierre de jornada)' : '')
             ];
 
             // Formato de celdas
@@ -1296,6 +1432,98 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         res.status(500).json({ error: 'Error al generar archivo Excel' });
     }
 });
+
+// ==========================================================
+// AUTO-CIERRE DE JORNADAS Y CONTROL DE JORNADAS ABIERTAS (PROTEGIDO)
+// ==========================================================
+
+// 1. Consultar colaboradores que actualmente tienen jornada abierta (sin salida registrada)
+app.get('/api/asistencia/jornadas-abiertas', verificarAdmin, async (req, res) => {
+    try {
+        const query = `
+            SELECT DISTINCT ON (ra.empleado_id)
+                ra.id AS asistencia_id,
+                ra.empleado_id,
+                ra.tipo,
+                ra.metodo,
+                ra.fecha_hora_marcacion AS fecha_ingreso,
+                e.nombre_completo,
+                e.area,
+                e.hora_ingreso,
+                e.hora_salida,
+                e.hora_ingreso_sab,
+                e.hora_salida_sab
+            FROM registros_asistencia ra
+            JOIN empleados e ON e.id = ra.empleado_id
+            WHERE e.activo = TRUE
+            ORDER BY ra.empleado_id, ra.fecha_hora_marcacion DESC
+        `;
+        const result = await db.query(query);
+        const abiertas = result.rows.filter(r => r.tipo === 'INGRESO');
+
+        const ahora = new Date();
+        const detalle = abiertas.map(r => {
+            const fIngreso = new Date(r.fecha_ingreso);
+            const minutosTranscurridos = Math.max(0, Math.round((ahora.getTime() - fIngreso.getTime()) / (1000 * 60)));
+            const h = Math.floor(minutosTranscurridos / 60);
+            const m = minutosTranscurridos % 60;
+            return {
+                ...r,
+                tiempo_transcurrido: `${h}h ${m}m`,
+                minutos_transcurridos: minutosTranscurridos
+            };
+        });
+
+        res.json({
+            total_abiertas: detalle.length,
+            jornadas: detalle
+        });
+    } catch (err) {
+        console.error('Error GET /api/asistencia/jornadas-abiertas:', err);
+        res.status(500).json({ error: 'Error al consultar jornadas abiertas' });
+    }
+});
+
+// 2. Disparar manualmente el auto-cierre de jornadas
+app.post('/api/asistencia/auto-cierre', verificarAdmin, async (req, res) => {
+    const { forzarTodo } = req.body || {};
+    try {
+        const cerradas = await ejecutarAutoCierreJornadas(!!forzarTodo);
+        res.json({
+            success: true,
+            mensaje: cerradas.length > 0 
+                ? `Se cerraron automáticamente ${cerradas.length} jornada(s).` 
+                : 'No hay jornadas abiertas que requieran cierre automático en este momento.',
+            cerradas_count: cerradas.length,
+            cerradas
+        });
+    } catch (err) {
+        console.error('Error POST /api/asistencia/auto-cierre:', err);
+        res.status(500).json({ error: 'Error al ejecutar el auto-cierre de jornadas' });
+    }
+});
+
+// ==========================================================
+// VIGILANTE PERIÓDICO DE AUTO-CIERRE EN SEGUNDO PLANO
+// ==========================================================
+// Ejecuta revisión cada 15 minutos de forma autónoma
+setInterval(async () => {
+    try {
+        await ejecutarAutoCierreJornadas(false);
+    } catch (err) {
+        console.error('Error en vigilante periódico de auto-cierre:', err);
+    }
+}, 15 * 60 * 1000);
+
+// Ejecutar una verificación inicial 5 segundos después del inicio del servidor
+setTimeout(async () => {
+    try {
+        console.log('🔍 [INICIO] Verificando jornadas abiertas para auto-cierre...');
+        await ejecutarAutoCierreJornadas(false);
+    } catch (err) {
+        console.error('Error en verificación inicial de auto-cierre:', err);
+    }
+}, 5000);
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor backend corriendo en: http://localhost:${PORT}`);

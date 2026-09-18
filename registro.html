@@ -266,9 +266,9 @@
             <!-- VISTA 3: ASISTENCIAS -->
             <div id="vista-asistencias" class="hidden">
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <!-- Buscador -->
-                        <div class="md:col-span-2">
+                        <div class="lg:col-span-2">
                             <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Buscar Trabajador</label>
                             <div class="relative">
                                 <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
@@ -287,10 +287,17 @@
                             </select>
                         </div>
 
+                        <!-- Botón Auto-Cierre de Jornadas -->
+                        <div>
+                            <button onclick="ejecutarAutoCierreManual()" title="Cierra automáticamente jornadas sin salida registrada a las 8:00 PM" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold py-2 px-3 rounded-lg text-xs shadow-xs flex items-center justify-center gap-1.5 transition active:scale-95">
+                                <i data-lucide="clock-alert" class="w-4 h-4 text-indigo-600"></i> Auto-Cierre
+                            </button>
+                        </div>
+
                         <!-- Botón Exportar Excel (.xlsx) -->
                         <div>
-                            <button onclick="exportarAsistenciasExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition active:scale-95">
-                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar a Excel (.xlsx)
+                            <button onclick="exportarAsistenciasExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 rounded-lg text-xs shadow-xs flex items-center justify-center gap-1.5 transition active:scale-95">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar (.xlsx)
                             </button>
                         </div>
                     </div>
@@ -1573,12 +1580,17 @@
                 // Método
                 let iconMetodo = 'scan-face';
                 let txtMetodo = 'Rostro';
+                let badgeMetodoClase = 'bg-slate-100 text-slate-700 border-slate-200';
+                let titleMetodo = 'Marcación por reconocimiento facial';
                 if (reg.metodo === 'PIN') {
                     iconMetodo = 'keypad';
                     txtMetodo = 'PIN';
+                    titleMetodo = 'Marcación por teclado PIN';
                 } else if (reg.metodo === 'SISTEMA_AUTO') {
-                    iconMetodo = 'bot';
-                    txtMetodo = 'Auto';
+                    iconMetodo = 'clock-check';
+                    txtMetodo = 'Auto (20:00)';
+                    badgeMetodoClase = 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold';
+                    titleMetodo = 'Salida registrada automáticamente por el sistema (Cierre de jornada a las 8:00 PM)';
                 }
 
                 const tr = document.createElement('tr');
@@ -1592,7 +1604,7 @@
                     <td class="px-5 py-3.5">${tiempoTrabajadoHtml}</td>
                     <td class="px-5 py-3.5">${puntualidadBadge}</td>
                     <td class="px-5 py-3.5">
-                        <span class="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border ${badgeMetodoClase}" title="${titleMetodo}">
                             <i data-lucide="${iconMetodo}" class="w-3.5 h-3.5"></i> ${txtMetodo}
                         </span>
                     </td>
@@ -1639,6 +1651,53 @@
             } catch (err) {
                 console.error("Error al exportar asistencias a Excel:", err);
                 mostrarToast('error', 'No se pudo descargar el archivo Excel.');
+            }
+        }
+
+        async function ejecutarAutoCierreManual() {
+            try {
+                mostrarToast('success', 'Consultando colaboradores con jornada abierta...');
+                const checkRes = await authFetch('/api/asistencia/jornadas-abiertas');
+                if (!checkRes.ok) throw new Error('Error al consultar jornadas');
+                const checkData = await checkRes.json();
+
+                if (checkData.total_abiertas === 0) {
+                    mostrarToast('success', 'No hay colaboradores con jornada abierta pendiente en este momento.');
+                    return;
+                }
+
+                const listaNombres = checkData.jornadas.map(j => {
+                    const fIng = new Date(j.fecha_ingreso);
+                    const horaIng = fIng.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                    return `• ${j.nombre_completo} (${j.area || 'General'}) - Ingresó a las: ${horaIng} (lleva ${j.tiempo_transcurrido})`;
+                }).slice(0, 6).join('\n');
+
+                const extra = checkData.total_abiertas > 6 ? `\n... y ${checkData.total_abiertas - 6} más` : '';
+
+                const confirmacion = confirm(
+                    `Se encontraron ${checkData.total_abiertas} colaborador(es) con jornada abierta (sin salida):\n\n${listaNombres}${extra}\n\n` +
+                    `¿Desea registrar su salida automática a las 8:00 PM (o fin de turno) calculando sus horas efectivas de trabajo?`
+                );
+
+                if (!confirmacion) return;
+
+                const res = await authFetch('/api/asistencia/auto-cierre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ forzarTodo: true })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    mostrarToast('success', data.mensaje || 'Jornadas cerradas exitosamente.');
+                    cargarAsistencias();
+                    cargarDashboardMetricas();
+                } else {
+                    mostrarToast('error', data.error || 'Error al ejecutar auto-cierre');
+                }
+            } catch (err) {
+                console.error('Error en ejecutarAutoCierreManual:', err);
+                mostrarToast('error', 'Error al procesar el auto-cierre.');
             }
         }
 
