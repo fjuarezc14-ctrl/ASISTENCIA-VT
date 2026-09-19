@@ -299,7 +299,7 @@ app.put('/api/empleados/:id', verificarAdmin, async (req, res) => {
 
     } catch (err) {
         console.error('Error PUT /api/empleados/:id:', err);
-        res.status(500).json({ error: 'Error al actualizar el colaborador' });
+        res.status(500).json({ error: 'Error al actualizar el colaborador: ' + (err.message || 'Error de base de datos') });
     }
 });
 

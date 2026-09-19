@@ -22,6 +22,7 @@ async function inicializarEsquema() {
       ALTER TABLE empleados ADD COLUMN IF NOT EXISTS inicio_refrigerio VARCHAR(10) DEFAULT '13:00';
       ALTER TABLE empleados ADD COLUMN IF NOT EXISTS fin_refrigerio VARCHAR(10) DEFAULT '15:00';
       ALTER TABLE empleados ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
+      ALTER TABLE empleados ALTER COLUMN codigo_pin TYPE VARCHAR(255) USING codigo_pin::varchar;
     `);
 
     // 2. Columnas adicionales para registros_asistencia
