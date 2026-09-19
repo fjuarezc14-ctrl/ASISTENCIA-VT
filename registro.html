@@ -486,11 +486,16 @@
                         </div>
                         <!-- Tipo de Reporte -->
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipo de Marcación</label>
-                            <select id="rep-filtro-tipo" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
-                                <option value="TODOS">Todas (Entradas y Salidas)</option>
-                                <option value="INGRESO">Solo Entradas / Ingresos</option>
-                                <option value="SALIDA">Solo Salidas (con horas calculadas)</option>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Tipo de Marcación / Filtro de Auditoría</label>
+                            <select id="rep-filtro-tipo" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium">
+                                <option value="TODOS">Todas las Marcaciones (Entradas y Salidas)</option>
+                                <option value="INGRESO">Solo Entradas / Ingresos (Horarios de Llegada)</option>
+                                <option value="SALIDA">Solo Salidas (con Horas Efectivas)</option>
+                                <option value="TARDANZAS_TODAS">⚠️ Todas las Tardanzas (Justificadas + Injustificadas)</option>
+                                <option value="TARDANZAS_INJUSTIFICADAS">🚨 Solo Tardanzas con Descuento (Sin justificar - Planilla)</option>
+                                <option value="FALTAS">❌ Solo Faltas / Inasistencias (Días sin marcar)</option>
+                                <option value="JUSTIFICADAS">🛡️ Solo Permisos y Justificaciones (Exonerados / No descuenta)</option>
+                                <option value="PUNTUALES">✅ Solo Asistencias Puntuales (A tiempo / Flexible)</option>
                             </select>
                         </div>
                         <!-- Rango de Fechas -->
@@ -515,15 +520,51 @@
 
                     <!-- Contenedor Previsualización -->
                     <div id="rep-contenedor-previsualizacion" class="hidden mt-6 border-t border-gray-100 pt-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4 class="font-bold text-gray-900 text-base flex items-center gap-2">
-                                <span>Vista Previa</span>
-                                <span id="rep-badge-conteo" class="text-xs font-semibold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">0 registros</span>
-                            </h4>
-                            <div id="rep-total-horas" class="text-xs font-bold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
-                                Total Horas Efectivas: 0h
+                        <div class="mb-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                <h4 class="font-bold text-gray-900 text-base flex items-center gap-2">
+                                    <span>Vista Previa del Reporte</span>
+                                    <span id="rep-badge-conteo" class="text-xs font-semibold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">0 registros</span>
+                                </h4>
+                                <span class="text-xs text-gray-400">Datos consolidados para auditoría y planillas</span>
+                            </div>
+
+                            <!-- 4 Tarjetas KPI -->
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                                    <div class="text-[11px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5"></i> Horas Efectivas
+                                    </div>
+                                    <div id="rep-kpi-horas" class="text-lg font-black text-blue-950 mt-1">0h 00m</div>
+                                    <div id="rep-kpi-horas-dec" class="text-[10px] text-blue-600 font-medium">0.00 hrs acumuladas</div>
+                                </div>
+
+                                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                    <div class="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Tardanza a Descontar
+                                    </div>
+                                    <div id="rep-kpi-tardanza" class="text-lg font-black text-amber-950 mt-1">0 min</div>
+                                    <div id="rep-kpi-tardanza-sub" class="text-[10px] text-amber-700 font-medium">0 tardanzas injustificadas</div>
+                                </div>
+
+                                <div class="bg-rose-50 border border-rose-200 rounded-xl p-3">
+                                    <div class="text-[11px] font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="user-x" class="w-3.5 h-3.5"></i> Faltas / Inasistencias
+                                    </div>
+                                    <div id="rep-kpi-faltas" class="text-lg font-black text-rose-950 mt-1">0 faltas</div>
+                                    <div id="rep-kpi-faltas-sub" class="text-[10px] text-rose-600 font-medium">0 sin justificar</div>
+                                </div>
+
+                                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                                    <div class="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Permisos Autorizados
+                                    </div>
+                                    <div id="rep-kpi-permisos" class="text-lg font-black text-emerald-950 mt-1">0 permisos</div>
+                                    <div class="text-[10px] text-emerald-600 font-bold">Exonerados (No descuenta)</div>
+                                </div>
                             </div>
                         </div>
+
                         <div class="overflow-x-auto border border-gray-200 rounded-xl max-h-80 overflow-y-auto">
                             <table class="w-full text-left text-xs whitespace-nowrap">
                                 <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 sticky top-0">
@@ -531,11 +572,13 @@
                                         <th class="p-3 font-semibold">ID</th>
                                         <th class="p-3 font-semibold">Empleado</th>
                                         <th class="p-3 font-semibold">Área</th>
-                                        <th class="p-3 font-semibold">Fecha</th>
-                                        <th class="p-3 font-semibold">Hora</th>
+                                        <th class="p-3 font-semibold font-mono">Fecha</th>
+                                        <th class="p-3 font-semibold font-mono">Hora</th>
                                         <th class="p-3 font-semibold">Tipo</th>
-                                        <th class="p-3 font-semibold">Tiempo Efectivo</th>
-                                        <th class="p-3 font-semibold">Método</th>
+                                        <th class="p-3 font-semibold text-right">Tiempo Efectivo</th>
+                                        <th class="p-3 font-semibold text-center">Puntualidad / Retraso</th>
+                                        <th class="p-3 font-semibold">Justificación / Permiso</th>
+                                        <th class="p-3 font-semibold text-center">Método</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rep-tabla-cuerpo" class="divide-y divide-gray-100"></tbody>
@@ -2351,54 +2394,138 @@
             const contPrev = document.getElementById('rep-contenedor-previsualizacion');
             const tbody = document.getElementById('rep-tabla-cuerpo');
             const badgeConteo = document.getElementById('rep-badge-conteo');
-            const totalHorasElem = document.getElementById('rep-total-horas');
+            const kpiHoras = document.getElementById('rep-kpi-horas');
+            const kpiHorasDec = document.getElementById('rep-kpi-horas-dec');
+            const kpiTardanza = document.getElementById('rep-kpi-tardanza');
+            const kpiTardanzaSub = document.getElementById('rep-kpi-tardanza-sub');
+            const kpiFaltas = document.getElementById('rep-kpi-faltas');
+            const kpiFaltasSub = document.getElementById('rep-kpi-faltas-sub');
+            const kpiPermisos = document.getElementById('rep-kpi-permisos');
 
             if (contPrev) contPrev.classList.remove('hidden');
-            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400">Consultando registros...</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-gray-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i> Consultando registros...</td></tr>';
+            lucide.createIcons();
 
             try {
                 const res = await authFetch(url);
-                if (!res.ok) return;
+                if (!res.ok) {
+                    mostrarToast('error', 'Error al consultar datos del servidor');
+                    return;
+                }
                 listaReportesCache = await res.json();
 
                 if (badgeConteo) badgeConteo.textContent = `${listaReportesCache.length} registros`;
 
-                // Calcular suma de minutos netos
+                // Calcular KPIs en tiempo real
                 let totalMinutos = 0;
+                let totalMinTardanza = 0;
+                let countTardanzas = 0;
+                let countFaltasInjust = 0;
+                let countFaltasJust = 0;
+                let countPermisos = 0;
+
                 listaReportesCache.forEach(r => {
                     if (r.minutos_netos) totalMinutos += Number(r.minutos_netos);
+                    if (r.min_tardanza > 0) {
+                        totalMinTardanza += Number(r.min_tardanza);
+                        countTardanzas++;
+                    }
+                    if (r.es_falta) {
+                        if (r.es_falta_injustificada) countFaltasInjust++;
+                        else countFaltasJust++;
+                    }
+                    if (r.tiene_justificacion) countPermisos++;
                 });
+
                 const totalH = Math.floor(totalMinutos / 60);
                 const totalM = totalMinutos % 60;
-                if (totalHorasElem) totalHorasElem.textContent = `Total Horas Efectivas: ${totalH}h ${totalM}m`;
+                const totalDecimal = (totalMinutos / 60).toFixed(2);
+
+                if (kpiHoras) kpiHoras.textContent = `${totalH}h ${totalM}m`;
+                if (kpiHorasDec) kpiHorasDec.textContent = `${totalDecimal} hrs acumuladas`;
+
+                const tardH = Math.floor(totalMinTardanza / 60);
+                const tardM = totalMinTardanza % 60;
+                const tardTxt = tardH > 0 ? `${totalMinTardanza} min (${tardH}h ${tardM}m)` : `${totalMinTardanza} min`;
+                if (kpiTardanza) kpiTardanza.textContent = tardTxt;
+                if (kpiTardanzaSub) kpiTardanzaSub.textContent = `${countTardanzas} con descuento`;
+
+                if (kpiFaltas) kpiFaltas.textContent = `${countFaltasInjust + countFaltasJust} faltas`;
+                if (kpiFaltasSub) kpiFaltasSub.textContent = `${countFaltasInjust} sin justificar`;
+
+                if (kpiPermisos) kpiPermisos.textContent = `${countPermisos} autorizados`;
 
                 if (!listaReportesCache || listaReportesCache.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400">No hay datos en el rango seleccionado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-gray-400">No hay datos en el rango y filtro seleccionado.</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = listaReportesCache.map(reg => {
-                    const f = new Date(reg.fecha_hora_marcacion);
-                    const fechaTexto = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
-                    const horaTexto = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
+                    const esIngreso = reg.tipo === 'INGRESO';
+                    const esFalta = reg.tipo === 'FALTA';
+
+                    let badgeTipo = '';
+                    if (esFalta) {
+                        badgeTipo = '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-200">INASISTENCIA</span>';
+                    } else if (esIngreso) {
+                        badgeTipo = '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Entrada</span>';
+                    } else {
+                        badgeTipo = '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Salida</span>';
+                    }
+
+                    // Badge Puntualidad / Retraso
+                    let badgePuntualidad = '';
+                    if (esFalta) {
+                        badgePuntualidad = reg.tiene_justificacion
+                            ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">Permiso / Vacaciones</span>'
+                            : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Falta Injustificada</span>';
+                    } else if (esIngreso) {
+                        if (reg.puntualidad && reg.puntualidad.includes('Justificada')) {
+                            badgePuntualidad = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">Tardanza Justificada</span>';
+                        } else if (reg.min_tardanza > 0) {
+                            badgePuntualidad = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">+${reg.min_tardanza} min tardanza</span>`;
+                        } else if (reg.puntualidad === 'Flexible') {
+                            badgePuntualidad = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">Horario Flexible</span>';
+                        } else {
+                            badgePuntualidad = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">A Tiempo</span>';
+                        }
+                    } else {
+                        badgePuntualidad = '<span class="text-xs text-gray-400 font-medium">Jornada Concluida</span>';
+                    }
+
+                    // Justificación / Motivo
+                    let motivoHtml = '<span class="text-gray-300">-</span>';
+                    if (reg.tiene_justificacion) {
+                        motivoHtml = `<span class="text-xs font-semibold text-sky-800 flex items-center gap-1"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-sky-600 shrink-0"></i> ${reg.motivo_justificacion || 'Autorizado por Gerencia'} <span class="text-[10px] bg-sky-100 text-sky-800 px-1.5 py-0.2 rounded font-bold">No descuenta</span></span>`;
+                    } else if (reg.min_tardanza > 0) {
+                        motivoHtml = '<span class="text-xs text-amber-700 font-medium italic">Sin justificar (sujeto a descuento)</span>';
+                    } else if (esFalta) {
+                        motivoHtml = '<span class="text-xs text-rose-700 font-bold italic">Descuento de día</span>';
+                    }
+
+                    const filaBg = esFalta ? 'bg-rose-50/40 hover:bg-rose-50' : 'hover:bg-gray-50';
 
                     return `
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="p-3 font-mono text-gray-400 text-xs">#${reg.id}</td>
+                        <tr class="${filaBg} transition">
+                            <td class="p-3 font-mono text-gray-400 text-xs">${reg.id === 'FALTA' ? '<span class="text-rose-500 font-bold">FALTA</span>' : '#' + reg.id}</td>
                             <td class="p-3 font-bold text-gray-900">${reg.nombre_completo}</td>
                             <td class="p-3 text-gray-600">${reg.area || 'General'}</td>
-                            <td class="p-3 text-gray-700">${fechaTexto}</td>
-                            <td class="p-3 font-medium text-gray-800">${horaTexto}</td>
-                            <td class="p-3 font-semibold ${reg.tipo === 'INGRESO' ? 'text-emerald-700' : 'text-rose-700'}">${reg.tipo}</td>
-                            <td class="p-3 font-bold text-blue-700">${reg.horas_trabajadas || '-'}</td>
-                            <td class="p-3 text-gray-600">${reg.metodo}</td>
+                            <td class="p-3 text-gray-700 font-mono">${reg.fecha}</td>
+                            <td class="p-3 font-medium text-gray-800 font-mono">${reg.hora}</td>
+                            <td class="p-3">${badgeTipo}</td>
+                            <td class="p-3 font-bold text-blue-700 text-right font-mono">${reg.horas_trabajadas || '-'}</td>
+                            <td class="p-3 text-center">${badgePuntualidad}</td>
+                            <td class="p-3">${motivoHtml}</td>
+                            <td class="p-3 text-center text-gray-500">${reg.metodo}</td>
                         </tr>
                     `;
                 }).join('');
 
+                lucide.createIcons();
+
             } catch (err) {
                 console.error("Error al previsualizar reporte:", err);
-                if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-rose-500">Error al cargar datos.</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-500">Error al cargar datos de auditoría.</td></tr>';
             }
         }
 

@@ -1152,7 +1152,6 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
         // 5. Últimas actividades
         const actividadReciente = registrosHoy.slice(0, 8).map(r => {
             const f = new Date(r.fecha_hora_marcacion);
-            const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
             return {
                 id: r.id,
                 nombre: r.nombre_completo,
@@ -1160,7 +1159,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
                 tipo: r.tipo,
                 metodo: r.metodo,
                 horas_trabajadas: r.horas_trabajadas,
-                hora: fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })
+                hora: f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' })
             };
         });
 
@@ -1179,203 +1178,468 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
     }
 });
 
-// Ver Reportes Filtrados (PROTEGIDO)
-app.get('/api/reportes', verificarAdmin, async (req, res) => {
-    const { empleado_id, periodo, tipo, fecha_inicio, fecha_fin } = req.query;
+// ==========================================================
+// FUNCIÓN UNIFICADA: GENERADOR Y PROCESADOR DE REPORTES Y AUDITORÍA
+// ==========================================================
+async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fecha_inicio, fecha_fin }) {
+    const ahora = new Date();
+    const emisionFecha = ahora.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+    const emisionHora = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Lima' });
 
-    try {
-        let query = `
-            SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
-                   e.hora_ingreso, e.hora_ingreso_sab,
-                   r.fecha_hora_marcacion, r.metodo, r.tipo, 
-                   r.horas_trabajadas, r.minutos_netos,
-                   j.id AS justificacion_id, j.tipo AS tipo_justificacion,
-                   j.hora_tolerancia, j.motivo AS motivo_justificacion, j.autorizado_por
-            FROM registros_asistencia r
-            JOIN empleados e ON r.empleado_id = e.id
-            LEFT JOIN justificaciones_asistencia j ON (
-                j.asistencia_id = r.id OR 
-                (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
-            )
-            WHERE 1=1
-        `;
-        const values = [];
+    let fInicio = fecha_inicio;
+    let fFin = fecha_fin;
 
-        if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
-            values.push(empleado_id);
-            query += ` AND r.empleado_id = $${values.length}`;
+    if (!fInicio && !fFin) {
+        if (periodo === 'DIA' || periodo === 'dia') {
+            fInicio = emisionFecha;
+            fFin = emisionFecha;
+        } else if (periodo === 'SEMANA' || periodo === 'semana') {
+            const [y, m, d] = emisionFecha.split('-').map(Number);
+            const dObj = new Date(Date.UTC(y, m - 1, d));
+            const day = dObj.getUTCDay();
+            const diff = (day === 0 ? -6 : 1) - day;
+            dObj.setUTCDate(dObj.getUTCDate() + diff);
+            fInicio = dObj.toISOString().split('T')[0];
+            fFin = emisionFecha;
+        } else if (periodo === 'MES' || periodo === 'mes') {
+            const [y, m] = emisionFecha.split('-');
+            fInicio = `${y}-${m}-01`;
+            fFin = emisionFecha;
+        }
+    }
+
+    // 1. Obtener empleados activos
+    let empQuery = `SELECT id, nombre_completo, area, hora_ingreso, hora_ingreso_sab, dias_laborables, activo FROM empleados WHERE activo = true`;
+    const empValues = [];
+    if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
+        empValues.push(empleado_id);
+        empQuery += ` AND id = $1`;
+    }
+    empQuery += ` ORDER BY nombre_completo ASC`;
+    const empRes = await db.query(empQuery, empValues);
+    const empleados = empRes.rows;
+
+    // 2. Obtener justificaciones del periodo
+    let justifQuery = `
+        SELECT id, empleado_id, asistencia_id, fecha, tipo, hora_tolerancia, motivo, autorizado_por 
+        FROM justificaciones_asistencia WHERE 1=1
+    `;
+    const justifValues = [];
+    if (fInicio) {
+        justifValues.push(fInicio);
+        justifQuery += ` AND fecha >= $${justifValues.length}`;
+    }
+    if (fFin) {
+        justifValues.push(fFin);
+        justifQuery += ` AND fecha <= $${justifValues.length}`;
+    }
+    const justifRes = await db.query(justifQuery, justifValues);
+    const justificaciones = justifRes.rows;
+
+    // 3. Obtener registros de asistencia
+    let regQuery = `
+        SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
+               e.hora_ingreso, e.hora_ingreso_sab, e.dias_laborables,
+               r.fecha_hora_marcacion, r.metodo, r.tipo, 
+               r.horas_trabajadas, r.minutos_netos,
+               j.id AS justificacion_id, j.tipo AS tipo_justificacion,
+               j.hora_tolerancia, j.motivo AS motivo_justificacion, j.autorizado_por
+        FROM registros_asistencia r
+        JOIN empleados e ON r.empleado_id = e.id
+        LEFT JOIN justificaciones_asistencia j ON (
+            j.asistencia_id = r.id OR 
+            (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
+        )
+        WHERE 1=1
+    `;
+    const regValues = [];
+    if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
+        regValues.push(empleado_id);
+        regQuery += ` AND r.empleado_id = $${regValues.length}`;
+    }
+    if (fInicio) {
+        regValues.push(fInicio);
+        regQuery += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date >= $${regValues.length}::date`;
+    }
+    if (fFin) {
+        regValues.push(fFin);
+        regQuery += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date <= $${regValues.length}::date`;
+    }
+    regQuery += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 5000;`;
+    const regRes = await db.query(regQuery, regValues);
+    const filasRaw = regRes.rows;
+
+    // 4. Enriquecer registros de asistencia
+    const setAsistencias = new Set();
+    const registrosProcesados = [];
+
+    for (const r of filasRaw) {
+        const f = new Date(r.fecha_hora_marcacion);
+        const fechaStr = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+        const horaStr = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
+        const esIngreso = r.tipo === 'INGRESO';
+        const horasDecimal = r.minutos_netos ? Number((r.minutos_netos / 60).toFixed(2)) : null;
+
+        if (esIngreso) {
+            setAsistencias.add(`${r.empleado_id}_${fechaStr}`);
         }
 
-        if (tipo && tipo !== 'TODOS' && tipo !== 'todos') {
-            values.push(tipo.toUpperCase());
-            query += ` AND r.tipo = $${values.length}`;
-        }
+        let minTardanza = 0;
+        let puntualidadStr = esIngreso ? 'A Tiempo' : 'Salida';
+        let esJustificado = !!r.justificacion_id;
+        let tieneTardanza = false;
+        let motivoTexto = r.motivo_justificacion || '';
 
-        if (fecha_inicio) {
-            values.push(fecha_inicio);
-            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date >= $${values.length}::date`;
-        }
+        if (esIngreso) {
+            const partesLima = new Intl.DateTimeFormat('es-PE', {
+                timeZone: 'America/Lima',
+                hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
+                weekday: 'short'
+            }).formatToParts(f);
+            const weekday = partesLima.find(p => p.type === 'weekday')?.value?.toLowerCase() || '';
+            const esSabado = weekday.includes('sáb') || weekday.includes('sab');
+            const horaPactada = esSabado ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
+            const esFlexible = horaPactada === 'FLEXIBLE' || r.hora_ingreso === 'FLEXIBLE' || (r.dias_laborables && r.dias_laborables.toLowerCase().includes('flexible'));
 
-        if (fecha_fin) {
-            values.push(fecha_fin);
-            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date <= $${values.length}::date`;
-        }
+            if (esFlexible) {
+                minTardanza = 0;
+                puntualidadStr = 'Flexible';
+            } else {
+                const [hP, mP] = horaPactada.split(':').map(Number);
+                const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
+                const hMarc = parseInt(partesLima.find(p => p.type === 'hour').value, 10);
+                const mMarc = parseInt(partesLima.find(p => p.type === 'minute').value, 10);
+                const minMarc = hMarc * 60 + mMarc;
+                const difMin = minMarc - minPactados;
 
-        if (!fecha_inicio && !fecha_fin) {
-            if (periodo === 'DIA' || periodo === 'dia') {
-                query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`;
-            } else if (periodo === 'SEMANA' || periodo === 'semana') {
-                query += ` AND r.fecha_hora_marcacion >= date_trunc('week', CURRENT_TIMESTAMP)`;
-            } else if (periodo === 'MES' || periodo === 'mes') {
-                query += ` AND r.fecha_hora_marcacion >= date_trunc('month', CURRENT_TIMESTAMP)`;
+                if (difMin > 5) {
+                    tieneTardanza = true;
+                    if (esJustificado) {
+                        minTardanza = 0; // Exonerado por Gerencia
+                        puntualidadStr = 'Tardanza Justificada';
+                        if (!motivoTexto) motivoTexto = 'Autorizado por Gerencia (No descuenta)';
+                    } else {
+                        minTardanza = difMin; // Sujeto a descuento
+                        puntualidadStr = `Tardanza (+${difMin}m)`;
+                    }
+                } else {
+                    puntualidadStr = 'A Tiempo';
+                }
             }
         }
 
-        query += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 1000;`;
+        registrosProcesados.push({
+            id: r.id,
+            empleado_id: r.empleado_id,
+            nombre_completo: r.nombre_completo,
+            area: r.area || 'General',
+            fecha_hora_marcacion: r.fecha_hora_marcacion,
+            fecha: fechaStr,
+            hora: horaStr,
+            tipo: r.tipo,
+            horas_trabajadas: r.horas_trabajadas || (esIngreso ? 'En jornada' : '-'),
+            minutos_netos: r.minutos_netos,
+            horas_decimal: horasDecimal,
+            min_tardanza: minTardanza,
+            puntualidad: puntualidadStr,
+            metodo: r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO'),
+            tiene_justificacion: esJustificado,
+            motivo_justificacion: motivoTexto,
+            es_tardanza: tieneTardanza,
+            es_falta: false
+        });
+    }
 
-        const result = await db.query(query, values);
-        res.json(result.rows);
+    // 5. Detectar Faltas / Inasistencias en el periodo
+    const faltasProcesadas = [];
+    if (fInicio && fFin) {
+        const cur = new Date(`${fInicio}T12:00:00Z`);
+        const limitStr = fFin > emisionFecha ? emisionFecha : fFin;
+        const end = new Date(`${limitStr}T12:00:00Z`);
+
+        while (cur <= end) {
+            const dStr = cur.toISOString().split('T')[0];
+            const diaSem = cur.getUTCDay(); // 0: Dom, 6: Sáb
+
+            if (diaSem !== 0) { // Excluir domingos
+                for (const emp of empleados) {
+                    const esFlex = emp.hora_ingreso === 'FLEXIBLE' || (emp.dias_laborables && emp.dias_laborables.toLowerCase().includes('flexible'));
+                    if (esFlex) continue;
+
+                    const key = `${emp.id}_${dStr}`;
+                    if (!setAsistencias.has(key)) {
+                        const justif = justificaciones.find(j => {
+                            const jFechaStr = j.fecha instanceof Date ? j.fecha.toISOString().split('T')[0] : String(j.fecha).split('T')[0];
+                            return j.empleado_id === emp.id && jFechaStr === dStr;
+                        });
+
+                        const esJustif = !!justif;
+                        const motivo = justif ? (justif.motivo || 'Permiso / Vacaciones Autorizado por Gerencia') : 'Inasistencia sin justificar (Descuento de día)';
+                        const puntualidad = esJustif ? 'Falta Justificada (Permiso)' : 'Inasistencia Injustificada';
+
+                        faltasProcesadas.push({
+                            id: 'FALTA',
+                            empleado_id: emp.id,
+                            nombre_completo: emp.nombre_completo,
+                            area: emp.area || 'General',
+                            fecha_hora_marcacion: `${dStr}T13:00:00.000Z`,
+                            fecha: dStr,
+                            hora: '-',
+                            tipo: 'FALTA',
+                            horas_trabajadas: '0h 00m',
+                            minutos_netos: 0,
+                            horas_decimal: 0,
+                            min_tardanza: 0,
+                            puntualidad: puntualidad,
+                            metodo: '-',
+                            tiene_justificacion: esJustif,
+                            motivo_justificacion: motivo,
+                            es_tardanza: false,
+                            es_falta: true,
+                            es_falta_injustificada: !esJustif
+                        });
+                    }
+                }
+            }
+            cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+    }
+
+    // 6. Filtrar según parámetro tipo
+    let registrosFiltrados = [];
+    const t = (tipo || 'TODOS').toUpperCase();
+
+    if (t === 'INGRESO') {
+        registrosFiltrados = registrosProcesados.filter(r => r.tipo === 'INGRESO');
+    } else if (t === 'SALIDA') {
+        registrosFiltrados = registrosProcesados.filter(r => r.tipo === 'SALIDA');
+    } else if (t === 'TARDANZAS_TODAS' || t === 'TARDANZAS') {
+        registrosFiltrados = registrosProcesados.filter(r => r.tipo === 'INGRESO' && r.es_tardanza);
+    } else if (t === 'TARDANZAS_INJUSTIFICADAS') {
+        registrosFiltrados = registrosProcesados.filter(r => r.tipo === 'INGRESO' && r.min_tardanza > 0);
+    } else if (t === 'JUSTIFICADAS') {
+        registrosFiltrados = [
+            ...registrosProcesados.filter(r => r.tiene_justificacion),
+            ...faltasProcesadas.filter(f => f.tiene_justificacion)
+        ];
+    } else if (t === 'PUNTUALES') {
+        registrosFiltrados = registrosProcesados.filter(r => r.tipo === 'INGRESO' && !r.es_tardanza);
+    } else if (t === 'FALTAS' || t === 'INASISTENCIAS') {
+        registrosFiltrados = faltasProcesadas;
+    } else {
+        // TODOS: Devuelve marcaciones de asistencia habituales
+        registrosFiltrados = registrosProcesados;
+    }
+
+    // 7. Consolidar métricas y resumen por colaborador
+    const resumenColaboradores = new Map();
+    for (const emp of empleados) {
+        resumenColaboradores.set(emp.id, {
+            id: emp.id,
+            nombre: emp.nombre_completo,
+            area: emp.area || 'General',
+            dias_asistidos: new Set(),
+            minutos_netos: 0,
+            min_tardanza: 0,
+            tardanzas_injustificadas: 0,
+            justificaciones: 0,
+            faltas_injustificadas: 0,
+            faltas_justificadas: 0
+        });
+    }
+
+    let totalHorasDecimal = 0;
+    let totalMinutosNetos = 0;
+    let totalMinTardanzaDescontable = 0;
+    let totalTardanzasDescontables = 0;
+    let totalJustificaciones = 0;
+    let totalFaltasInjustificadas = 0;
+    let totalFaltasJustificadas = 0;
+
+    registrosProcesados.forEach(r => {
+        if (r.minutos_netos) totalMinutosNetos += r.minutos_netos;
+        if (r.horas_decimal) totalHorasDecimal += r.horas_decimal;
+        if (r.min_tardanza > 0) {
+            totalMinTardanzaDescontable += r.min_tardanza;
+            totalTardanzasDescontables++;
+        }
+        if (r.tiene_justificacion) totalJustificaciones++;
+
+        const empStats = resumenColaboradores.get(r.empleado_id);
+        if (empStats) {
+            if (r.tipo === 'INGRESO') empStats.dias_asistidos.add(r.fecha);
+            if (r.minutos_netos) empStats.minutos_netos += r.minutos_netos;
+            if (r.min_tardanza > 0) {
+                empStats.min_tardanza += r.min_tardanza;
+                empStats.tardanzas_injustificadas++;
+            }
+            if (r.tiene_justificacion) empStats.justificaciones++;
+        }
+    });
+
+    faltasProcesadas.forEach(f => {
+        if (f.es_falta_injustificada) totalFaltasInjustificadas++;
+        else totalFaltasJustificadas++;
+
+        const empStats = resumenColaboradores.get(f.empleado_id);
+        if (empStats) {
+            if (f.es_falta_injustificada) empStats.faltas_injustificadas++;
+            else {
+                empStats.faltas_justificadas++;
+                empStats.justificaciones++;
+            }
+        }
+    });
+
+    const listaResumenColab = Array.from(resumenColaboradores.values()).map(e => ({
+        id: e.id,
+        nombre: e.nombre,
+        area: e.area,
+        dias_asistidos: e.dias_asistidos.size,
+        minutos_netos: e.minutos_netos,
+        horas_texto: `${Math.floor(e.minutos_netos / 60)}h ${e.minutos_netos % 60}m`,
+        horas_decimal: Number((e.minutos_netos / 60).toFixed(2)),
+        min_tardanza: e.min_tardanza,
+        tardanza_horas: Number((e.min_tardanza / 60).toFixed(2)),
+        tardanzas_injustificadas: e.tardanzas_injustificadas,
+        justificaciones: e.justificaciones,
+        faltas_injustificadas: e.faltas_injustificadas,
+        faltas_justificadas: e.faltas_justificadas,
+        estado: e.faltas_injustificadas > 0 ? 'Con Faltas' : (e.min_tardanza > 0 ? 'Con Tardanzas' : 'Puntual')
+    }));
+
+    return {
+        registrosFiltrados,
+        faltasProcesadas,
+        resumenColaboradores: listaResumenColab,
+        totales: {
+            total_registros: registrosFiltrados.length,
+            total_horas_decimal: Number(totalHorasDecimal.toFixed(2)),
+            total_horas_texto: `${Math.floor(totalMinutosNetos / 60)}h ${totalMinutosNetos % 60}m`,
+            total_min_tardanza: totalMinTardanzaDescontable,
+            total_tardanza_texto: `${Math.floor(totalMinTardanzaDescontable / 60)}h ${totalMinTardanzaDescontable % 60}m`,
+            total_tardanzas_conteo: totalTardanzasDescontables,
+            total_faltas_injustificadas: totalFaltasInjustificadas,
+            total_faltas_justificadas: totalFaltasJustificadas,
+            total_justificaciones: totalJustificaciones
+        },
+        meta: {
+            fInicio,
+            fFin,
+            periodo,
+            tipo: t,
+            emisionFecha,
+            emisionHora
+        }
+    };
+}
+
+// Ver Reportes Filtrados (PROTEGIDO)
+app.get('/api/reportes', verificarAdmin, async (req, res) => {
+    try {
+        const data = await procesarReporteAsistencias({
+            db,
+            empleado_id: req.query.empleado_id,
+            periodo: req.query.periodo,
+            tipo: req.query.tipo,
+            fecha_inicio: req.query.fecha_inicio,
+            fecha_fin: req.query.fecha_fin
+        });
+
+        res.json(data.registrosFiltrados);
     } catch (err) {
-        console.error('Error GET reportes:', err);
+        console.error('Error GET /api/reportes:', err);
         res.status(500).json({ error: 'Error al obtener reportes filtrados' });
     }
 });
 
 // Endpoint Exportar a Excel (.xlsx) Profesional para Contabilidad (PROTEGIDO)
 app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
-    const { empleado_id, periodo, tipo, fecha_inicio, fecha_fin } = req.query;
-
     try {
-        let query = `
-            SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
-                   e.hora_ingreso, e.hora_ingreso_sab,
-                   r.fecha_hora_marcacion, r.metodo, r.tipo, 
-                   r.horas_trabajadas, r.minutos_netos,
-                   j.id AS justificacion_id, j.tipo AS tipo_justificacion,
-                   j.motivo AS motivo_justificacion, j.autorizado_por
-            FROM registros_asistencia r
-            JOIN empleados e ON r.empleado_id = e.id
-            LEFT JOIN justificaciones_asistencia j ON (
-                j.asistencia_id = r.id OR 
-                (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
-            )
-            WHERE 1=1
-        `;
-        const values = [];
-
-        if (empleado_id && empleado_id !== 'TODOS' && empleado_id !== 'todos') {
-            values.push(empleado_id);
-            query += ` AND r.empleado_id = $${values.length}`;
-        }
-
-        if (tipo && tipo !== 'TODOS' && tipo !== 'todos') {
-            values.push(tipo.toUpperCase());
-            query += ` AND r.tipo = $${values.length}`;
-        }
-
-        if (fecha_inicio) {
-            values.push(fecha_inicio);
-            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date >= $${values.length}::date`;
-        }
-
-        if (fecha_fin) {
-            values.push(fecha_fin);
-            query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date <= $${values.length}::date`;
-        }
-
-        if (!fecha_inicio && !fecha_fin) {
-            if (periodo === 'DIA' || periodo === 'dia') {
-                query += ` AND (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`;
-            } else if (periodo === 'SEMANA' || periodo === 'semana') {
-                query += ` AND r.fecha_hora_marcacion >= date_trunc('week', CURRENT_TIMESTAMP)`;
-            } else if (periodo === 'MES' || periodo === 'mes') {
-                query += ` AND r.fecha_hora_marcacion >= date_trunc('month', CURRENT_TIMESTAMP)`;
-            }
-        }
-
-        query += ` ORDER BY r.fecha_hora_marcacion DESC LIMIT 5000;`;
-
-        const result = await db.query(query, values);
-        const filas = result.rows;
+        const { registrosFiltrados, resumenColaboradores, totales, meta } = await procesarReporteAsistencias({
+            db,
+            empleado_id: req.query.empleado_id,
+            periodo: req.query.periodo,
+            tipo: req.query.tipo,
+            fecha_inicio: req.query.fecha_inicio,
+            fecha_fin: req.query.fecha_fin
+        });
 
         // Crear libro de Excel profesional
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'VT Valetec';
         workbook.created = new Date();
 
+        // ==========================================
+        // HOJA 1: CONTROL DETALLADO DE ASISTENCIAS
+        // ==========================================
         const sheet = workbook.addWorksheet('Control de Asistencias', {
             views: [{ state: 'frozen', ySplit: 5, showGridLines: true }]
         });
 
-        // Configurar anchos de columna (12 columnas)
         sheet.columns = [
-            { key: 'id', width: 10 },
+            { key: 'id', width: 12 },
             { key: 'empleado', width: 32 },
-            { key: 'area', width: 26 },
+            { key: 'area', width: 24 },
             { key: 'fecha', width: 14 },
             { key: 'hora', width: 14 },
             { key: 'tipo', width: 16 },
             { key: 'tiempo_texto', width: 20 },
-            { key: 'horas_decimal', width: 20 },
+            { key: 'horas_decimal', width: 18 },
             { key: 'minutos_tardanza', width: 20 },
-            { key: 'puntualidad', width: 24 },
-            { key: 'metodo', width: 16 },
-            { key: 'observacion', width: 32 }
+            { key: 'puntualidad', width: 26 },
+            { key: 'observacion', width: 36 },
+            { key: 'metodo', width: 14 }
         ];
 
         // Fila 1: Título Institucional
         sheet.mergeCells('A1:L1');
         const r1 = sheet.getCell('A1');
-        r1.value = 'VT VALETEC • CONTROL BIOMÉTRICO Y REGISTRO DE ASISTENCIAS';
+        r1.value = 'VT VALETEC • CONTROL BIOMÉTRICO Y AUDITORÍA DE ASISTENCIAS';
         r1.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-        r1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Slate 900
+        r1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
         r1.alignment = { vertical: 'middle', horizontal: 'center' };
         sheet.getRow(1).height = 32;
 
         // Fila 2: Subtítulo
         sheet.mergeCells('A2:L2');
         const r2 = sheet.getCell('A2');
-        r2.value = 'REPORTE OFICIAL CONSOLIDADO PARA CONTROL DE HORAS EFECTIVAS Y PLANILLAS';
-        r2.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF94A3B8' } }; // Slate 400
-        r2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate 800
+        r2.value = 'REPORTE OFICIAL CONSOLIDADO PARA CONTROL DE HORAS EFECTIVAS, TARDANZAS Y PLANILLAS';
+        r2.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF94A3B8' } };
+        r2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
         r2.alignment = { vertical: 'middle', horizontal: 'center' };
         sheet.getRow(2).height = 20;
 
         // Fila 3: Metadata
-        const ahora = new Date();
-        const emisionFecha = ahora.toLocaleDateString('sv', { timeZone: 'America/Lima' });
-        const emisionHora = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Lima' });
-        const emisionStr = `${emisionFecha} ${emisionHora}`;
-
         sheet.mergeCells('A3:E3');
         const r3a = sheet.getCell('A3');
-        r3a.value = `Fecha de Emisión: ${emisionStr} (Hora de Lima)`;
+        r3a.value = `Emisión: ${meta.emisionFecha} ${meta.emisionHora} (Hora de Lima)`;
         r3a.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF475569' } };
         r3a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         r3a.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
         sheet.mergeCells('F3:L3');
         const r3b = sheet.getCell('F3');
-        r3b.value = `Total Registros: ${filas.length} | Filtro: ${tipo || 'TODOS'} | Periodo: ${periodo || (fecha_inicio ? `${fecha_inicio} a ${fecha_fin}` : 'Personalizado')}`;
+        r3b.value = `Total Registros: ${registrosFiltrados.length} | Filtro: ${meta.tipo} | Periodo: ${meta.fInicio || 'Historial'} a ${meta.fFin || 'Hoy'}`;
         r3b.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF475569' } };
         r3b.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         r3b.alignment = { vertical: 'middle', horizontal: 'right' };
         sheet.getRow(3).height = 18;
 
-        // Fila 4: Separador en blanco
-        sheet.getRow(4).height = 10;
+        // Fila 4: Espacio
+        sheet.getRow(4).height = 8;
 
-        // Fila 5: Cabecera de Tabla
+        // Fila 5: Cabeceras
         const headers = [
             'ID REGISTRO', 'COLABORADOR', 'ÁREA / DEPTO', 'FECHA', 'HORA', 
-            'TIPO', 'TIEMPO EFECTIVO', 'HORAS (DECIMAL)', 'MIN. TARDANZA', 'PUNTUALIDAD', 'MÉTODO', 'OBSERVACIÓN'
+            'TIPO', 'TIEMPO EFECTIVO', 'HORAS (DECIMAL)', 'MIN. TARDANZA (CON DESCUENTO)', 'ESTADO PUNTUALIDAD', 'JUSTIFICACIÓN / MOTIVO (NO DESCUENTA)', 'MÉTODO'
         ];
         const row5 = sheet.getRow(5);
         row5.values = headers;
         row5.height = 26;
         row5.eachCell((cell) => {
             cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; // Blue 900
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = {
                 top: { style: 'medium', color: { argb: 'FF0F172A' } },
@@ -1383,7 +1647,6 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             };
         });
 
-        // Insertar datos
         const borderThin = {
             top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
             bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -1391,149 +1654,97 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
         };
 
-        let startRowIndex = 6;
-        filas.forEach((r, idx) => {
+        const startRowIndex = 6;
+        registrosFiltrados.forEach((r, idx) => {
             const rowIdx = startRowIndex + idx;
-            const f = new Date(r.fecha_hora_marcacion);
-            const fechaStr = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
-            const horaStr = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
-
             const esIngreso = r.tipo === 'INGRESO';
-            const horasDecimal = r.minutos_netos ? Number((r.minutos_netos / 60).toFixed(2)) : null;
-
-            // Tardanza y Justificación
-            let minTardanza = 0;
-            let puntualidadStr = 'Salida';
-            const tieneJustificacion = !!r.justificacion_id;
-
-            if (esIngreso) {
-                const diaSem = f.getUTCDay();
-                const horaPactada = diaSem === 6 ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
-                const esFlexible = horaPactada === 'FLEXIBLE' || r.hora_ingreso === 'FLEXIBLE' || (r.dias_laborables && r.dias_laborables.toLowerCase().includes('flexible'));
-
-                if (esFlexible) {
-                    minTardanza = 0;
-                    puntualidadStr = 'Flexible';
-                } else {
-                    const [hP, mP] = horaPactada.split(':').map(Number);
-                    const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
-
-                    const partesMarc = new Intl.DateTimeFormat('es-PE', {
-                        timeZone: 'America/Lima',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hourCycle: 'h23'
-                    }).formatToParts(f);
-                    const hMarc = parseInt(partesMarc.find(p => p.type === 'hour').value, 10);
-                    const mMarc = parseInt(partesMarc.find(p => p.type === 'minute').value, 10);
-                    const minMarc = hMarc * 60 + mMarc;
-                    const difMin = minMarc - minPactados;
-
-                    if (difMin > 5) {
-                        if (tieneJustificacion) {
-                            minTardanza = 0; // Exonerado por Gerencia
-                            puntualidadStr = 'Tardanza Justificada';
-                        } else {
-                            minTardanza = difMin;
-                            puntualidadStr = `Tardanza (+${difMin}m)`;
-                        }
-                    } else {
-                        puntualidadStr = 'A Tiempo';
-                    }
-                }
-            }
-
+            const esFalta = r.tipo === 'FALTA';
             const isZebra = idx % 2 === 1;
-            const rowBg = isZebra ? 'FFF8FAFC' : 'FFFFFFFF';
+            const rowBg = esFalta ? 'FFFFF1F2' : (isZebra ? 'FFF8FAFC' : 'FFFFFFFF');
 
             const row = sheet.getRow(rowIdx);
             row.height = 20;
             row.values = [
-                `#${r.id}`,
+                esFalta ? 'FALTA' : `#${r.id}`,
                 r.nombre_completo,
-                r.area || 'General',
-                fechaStr,
-                horaStr,
-                esIngreso ? 'ENTRADA' : 'SALIDA',
-                r.horas_trabajadas || (esIngreso ? 'En jornada' : '-'),
-                horasDecimal,
-                minTardanza,
-                puntualidadStr,
-                r.metodo === 'PIN' ? 'PIN' : (r.metodo === 'SISTEMA_AUTO' ? 'AUTO' : 'ROSTRO'),
-                tieneJustificacion 
-                    ? (r.motivo_justificacion || 'Autorizado por Gerencia') 
-                    : (r.metodo === 'SISTEMA_AUTO' ? 'Salida registrada automáticamente por el sistema (Cierre de jornada)' : '')
+                r.area,
+                r.fecha,
+                r.hora,
+                esFalta ? 'INASISTENCIA' : (esIngreso ? 'ENTRADA' : 'SALIDA'),
+                r.horas_trabajadas,
+                r.horas_decimal || 0,
+                r.min_tardanza || 0,
+                r.puntualidad,
+                r.motivo_justificacion || (r.tiene_justificacion ? 'Autorizado por Gerencia' : ''),
+                r.metodo
             ];
 
-            // Formato de celdas
             row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
                 cell.font = { name: 'Arial', size: 9, color: { argb: 'FF1E293B' } };
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
                 cell.border = borderThin;
                 cell.alignment = { vertical: 'middle', horizontal: 'center' };
 
-                if (colNumber === 2 || colNumber === 3) { // Colaborador y Área
+                if (colNumber === 2 || colNumber === 3) {
                     cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
                 }
 
                 if (colNumber === 6) { // Tipo
                     cell.font = { 
                         name: 'Arial', size: 9, bold: true, 
-                        color: { argb: esIngreso ? 'FF059669' : 'FFE11D48' } // Verde / Rosa
+                        color: { argb: esFalta ? 'FFE11D48' : (esIngreso ? 'FF059669' : 'FF6366F1') } 
                     };
                 }
 
-                if (colNumber === 8) { // Horas Decimal
+                if (colNumber === 8) { // Horas decimal
                     cell.alignment = { vertical: 'middle', horizontal: 'right' };
                     cell.numFmt = '0.00';
-                    if (horasDecimal) {
+                    if (r.horas_decimal) {
                         cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF1E3A8A' } };
                     }
                 }
 
-                if (colNumber === 9) { // Minutos Tardanza
+                if (colNumber === 9) { // Min tardanza
                     cell.alignment = { vertical: 'middle', horizontal: 'right' };
                     cell.numFmt = '0';
-                    if (minTardanza > 0) {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // Amber 100
-                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } }; // Amber 700
-                    }
-                }
-
-                if (colNumber === 10) {
-                    if (puntualidadStr === 'Tardanza Justificada') {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } }; // Light blue
-                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0284C7' } }; // Sky 600
-                    } else if (minTardanza > 0) {
+                    if (r.min_tardanza > 0) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
                         cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
                     }
                 }
 
-                if (colNumber === 12 && tieneJustificacion) { // Observación
+                if (colNumber === 10) { // Puntualidad
+                    if (r.puntualidad.includes('Justificada') || r.puntualidad.includes('Permiso')) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0284C7' } };
+                    } else if (r.min_tardanza > 0 || esFalta) {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFE11D48' } };
+                    }
+                }
+
+                if (colNumber === 11 && r.tiene_justificacion) {
                     cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF0369A1' } };
                 }
             });
         });
 
-        // Fila de Totales
-        const lastDataRow = startRowIndex + filas.length - 1;
+        // Totales de Hoja 1
+        const lastDataRow = startRowIndex + registrosFiltrados.length - 1;
         const totalRowIdx = lastDataRow + 1;
 
-        if (filas.length > 0) {
+        if (registrosFiltrados.length > 0) {
             sheet.mergeCells(`A${totalRowIdx}:G${totalRowIdx}`);
             const totalLabelCell = sheet.getCell(`A${totalRowIdx}`);
             totalLabelCell.value = 'TOTAL GENERAL ACUMULADO:';
             totalLabelCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
             totalLabelCell.alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
 
-            // Total Horas Decimales
             const totalHorasCell = sheet.getCell(`H${totalRowIdx}`);
             totalHorasCell.value = { formula: `SUM(H${startRowIndex}:H${lastDataRow})` };
             totalHorasCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
             totalHorasCell.numFmt = '#,##0.00';
             totalHorasCell.alignment = { vertical: 'middle', horizontal: 'right' };
 
-            // Total Minutos Tardanza
             const totalTardanzasCell = sheet.getCell(`I${totalRowIdx}`);
             totalTardanzasCell.value = { formula: `SUM(I${startRowIndex}:I${lastDataRow})` };
             totalTardanzasCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFB45309' } };
@@ -1551,20 +1762,188 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
                     right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
                 };
             });
+
+            // Fila de nota aclaratoria
+            const notaRowIdx = totalRowIdx + 1;
+            sheet.mergeCells(`A${notaRowIdx}:L${notaRowIdx}`);
+            const notaCell = sheet.getCell(`A${notaRowIdx}`);
+            notaCell.value = '* NOTA PARA PLANILLA: La columna "MIN. TARDANZA (CON DESCUENTO)" contiene exclusivamente los minutos sujetos a descuento. Toda tardanza o inasistencia autorizada por gerencia figura como 0 min para evitar descuentos indebidos.';
+            notaCell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF64748B' } };
+            notaCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+            sheet.getRow(notaRowIdx).height = 18;
         }
 
-        // Activar AutoFiltros
         sheet.autoFilter = `A5:L5`;
 
-        // Generar archivo binario y enviar
+        // ==========================================
+        // HOJA 2: RESUMEN CONSOLIDADO POR COLABORADOR
+        // ==========================================
+        const sheet2 = workbook.addWorksheet('Resumen por Colaborador', {
+            views: [{ state: 'frozen', ySplit: 4, showGridLines: true }]
+        });
+
+        sheet2.columns = [
+            { key: 'colab', width: 32 },
+            { key: 'area', width: 24 },
+            { key: 'dias', width: 16 },
+            { key: 'horas_txt', width: 22 },
+            { key: 'horas_dec', width: 18 },
+            { key: 'min_tardanza', width: 24 },
+            { key: 'horas_tardanza', width: 20 },
+            { key: 'faltas', width: 22 },
+            { key: 'permisos', width: 24 },
+            { key: 'estado', width: 20 }
+        ];
+
+        // Título Hoja 2
+        sheet2.mergeCells('A1:J1');
+        const s2r1 = sheet2.getCell('A1');
+        s2r1.value = 'VT VALETEC • RESUMEN CONSOLIDADO DE ASISTENCIAS Y DESCUENTOS POR COLABORADOR';
+        s2r1.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        s2r1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+        s2r1.alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet2.getRow(1).height = 30;
+
+        sheet2.mergeCells('A2:J2');
+        const s2r2 = sheet2.getCell('A2');
+        s2r2.value = `Periodo Consultado: ${meta.fInicio || 'Historial'} al ${meta.fFin || 'Hoy'} | Emisión: ${meta.emisionFecha} ${meta.emisionHora}`;
+        s2r2.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
+        s2r2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        s2r2.alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet2.getRow(2).height = 18;
+
+        sheet2.getRow(3).height = 8;
+
+        const headers2 = [
+            'COLABORADOR', 'ÁREA / DEPTO', 'DÍAS ASISTIDOS', 'HORAS EFECTIVAS', 'HORAS (DECIMAL)',
+            'TARDANZA DESCONTABLE (MIN)', 'EQUIVALENTE EN HORAS', 'FALTAS INJUSTIFICADAS', 'PERMISOS AUTORIZADOS', 'ESTADO AUDITORÍA'
+        ];
+        const s2Row4 = sheet2.getRow(4);
+        s2Row4.values = headers2;
+        s2Row4.height = 26;
+        s2Row4.eachCell(cell => {
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF047857' } }; // Emerald 700
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF064E3B' } },
+                bottom: { style: 'medium', color: { argb: 'FF064E3B' } }
+            };
+        });
+
+        resumenColaboradores.forEach((emp, i) => {
+            const rowIdx = 5 + i;
+            const row = sheet2.getRow(rowIdx);
+            row.height = 20;
+            const isZebra = i % 2 === 1;
+
+            row.values = [
+                emp.nombre,
+                emp.area,
+                emp.dias_asistidos,
+                emp.horas_texto,
+                emp.horas_decimal,
+                emp.min_tardanza,
+                emp.tardanza_horas,
+                emp.faltas_injustificadas,
+                emp.justificaciones,
+                emp.estado
+            ];
+
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                cell.font = { name: 'Arial', size: 9, color: { argb: 'FF1E293B' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isZebra ? 'FFF8FAFC' : 'FFFFFFFF' } };
+                cell.border = borderThin;
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+                if (colNumber === 1 || colNumber === 2) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+                }
+
+                if (colNumber === 5) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '0.00';
+                }
+
+                if (colNumber === 6) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '0';
+                    if (emp.min_tardanza > 0) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+                    }
+                }
+
+                if (colNumber === 7) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '0.00';
+                }
+
+                if (colNumber === 8 && emp.faltas_injustificadas > 0) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E6' } };
+                    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFE11D48' } };
+                }
+
+                if (colNumber === 9 && emp.justificaciones > 0) {
+                    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0284C7' } };
+                }
+
+                if (colNumber === 10) {
+                    if (emp.estado === 'Con Faltas') {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFE11D48' } };
+                    } else if (emp.estado === 'Con Tardanzas') {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFD97706' } };
+                    } else {
+                        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF059669' } };
+                    }
+                }
+            });
+        });
+
+        // Totales Hoja 2
+        const lastRow2 = 4 + resumenColaboradores.length;
+        const totalRow2Idx = lastRow2 + 1;
+        if (resumenColaboradores.length > 0) {
+            sheet2.mergeCells(`A${totalRow2Idx}:B${totalRow2Idx}`);
+            const tCell = sheet2.getCell(`A${totalRow2Idx}`);
+            tCell.value = 'TOTALES GENERALES:';
+            tCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+            tCell.alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
+
+            sheet2.getCell(`C${totalRow2Idx}`).value = { formula: `SUM(C5:C${lastRow2})` };
+            sheet2.getCell(`E${totalRow2Idx}`).value = { formula: `SUM(E5:E${lastRow2})` };
+            sheet2.getCell(`F${totalRow2Idx}`).value = { formula: `SUM(F5:F${lastRow2})` };
+            sheet2.getCell(`G${totalRow2Idx}`).value = { formula: `SUM(G5:G${lastRow2})` };
+            sheet2.getCell(`H${totalRow2Idx}`).value = { formula: `SUM(H5:H${lastRow2})` };
+            sheet2.getCell(`I${totalRow2Idx}`).value = { formula: `SUM(I5:I${lastRow2})` };
+
+            const rTot = sheet2.getRow(totalRow2Idx);
+            rTot.height = 24;
+            rTot.eachCell({ includeEmpty: true }, (c, col) => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                c.border = {
+                    top: { style: 'medium', color: { argb: 'FF475569' } },
+                    bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                };
+                if ([3, 5, 6, 7, 8, 9].includes(col)) {
+                    c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+                    c.alignment = { vertical: 'middle', horizontal: 'right' };
+                }
+            });
+        }
+
+        sheet2.autoFilter = `A4:J4`;
+
+        // Nombre de archivo seguro sin variables indefinidas
+        const nombreArchivo = `Reporte_Asistencias_Valetec_${meta.emisionFecha}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="Reporte_Asistencias_Valetec_${ahoraLima.toISOString().split('T')[0]}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
 
         await workbook.xlsx.write(res);
         res.end();
 
     } catch (err) {
-        console.error('Error GET reportes/excel:', err);
+        console.error('Error GET /api/reportes/excel:', err);
         res.status(500).json({ error: 'Error al generar archivo Excel' });
     }
 });
