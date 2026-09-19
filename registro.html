@@ -1980,9 +1980,8 @@
 
             lista.forEach(reg => {
                 const f = new Date(reg.fecha_hora_marcacion);
-                const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
-                const fechaTexto = fLima.toISOString().split('T')[0];
-                const horaTexto = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const fechaTexto = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+                const horaTexto = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
 
                 const esIngreso = reg.tipo === 'INGRESO';
                 const badgeTipo = esIngreso 
@@ -2003,7 +2002,16 @@
                     const horaPactada = reg.hora_ingreso || '08:00';
                     const [hP, mP] = horaPactada.split(':').map(Number);
                     const minPactados = hP * 60 + mP;
-                    const minMarc = fLima.getUTCHours() * 60 + fLima.getUTCMinutes();
+
+                    const partes = new Intl.DateTimeFormat('es-PE', {
+                        timeZone: 'America/Lima',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        hourCycle: 'h23'
+                    }).formatToParts(f);
+                    const horaMarc = parseInt(partes.find(p => p.type === 'hour').value, 10);
+                    const minutoMarc = parseInt(partes.find(p => p.type === 'minute').value, 10);
+                    const minMarc = horaMarc * 60 + minutoMarc;
                     const difMin = minMarc - minPactados;
 
                     if (difMin > 5) {
@@ -2023,7 +2031,7 @@
                 let badgeMetodoClase = 'bg-slate-100 text-slate-700 border-slate-200';
                 let titleMetodo = 'Marcación por reconocimiento facial';
                 if (reg.metodo === 'PIN') {
-                    iconMetodo = 'keypad';
+                    iconMetodo = 'keyboard';
                     txtMetodo = 'PIN';
                     titleMetodo = 'Marcación por teclado PIN';
                 } else if (reg.metodo === 'SISTEMA_AUTO') {
@@ -2199,9 +2207,8 @@
 
                 tbody.innerHTML = listaReportesCache.map(reg => {
                     const f = new Date(reg.fecha_hora_marcacion);
-                    const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
-                    const fechaTexto = fLima.toISOString().split('T')[0];
-                    const horaTexto = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const fechaTexto = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+                    const horaTexto = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
 
                     return `
                         <tr class="hover:bg-gray-50 transition">

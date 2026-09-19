@@ -1323,8 +1323,9 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
 
         // Fila 3: Metadata
         const ahora = new Date();
-        const ahoraLima = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
-        const emisionStr = ahoraLima.toISOString().replace('T', ' ').slice(0, 19);
+        const emisionFecha = ahora.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+        const emisionHora = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Lima' });
+        const emisionStr = `${emisionFecha} ${emisionHora}`;
 
         sheet.mergeCells('A3:E3');
         const r3a = sheet.getCell('A3');
@@ -1374,9 +1375,8 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
         filas.forEach((r, idx) => {
             const rowIdx = startRowIndex + idx;
             const f = new Date(r.fecha_hora_marcacion);
-            const fLima = new Date(f.getTime() - (5 * 60 * 60 * 1000));
-            const fechaStr = fLima.toISOString().split('T')[0];
-            const horaStr = fLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const fechaStr = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
+            const horaStr = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
 
             const esIngreso = r.tipo === 'INGRESO';
             const horasDecimal = r.minutos_netos ? Number((r.minutos_netos / 60).toFixed(2)) : null;
