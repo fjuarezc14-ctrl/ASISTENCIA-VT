@@ -13,6 +13,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-Valeria29}
       POSTGRES_DB: ${DB_NAME:-vt_asistencia}
+      TZ: America/Lima
     ports:
       - "${DB_PORT:-5438}:5432"
     volumes:
@@ -35,6 +36,7 @@ services:
       - "${BACKEND_PORT:-3008}:3008"
     environment:
       - PORT=3008
+      - TZ=America/Lima
       - DB_HOST=asistencia-db
       - DB_PORT=5432
       - DB_USER=${DB_USER:-postgres}

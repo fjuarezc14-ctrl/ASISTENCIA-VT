@@ -1060,13 +1060,17 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
             SELECT id, empleado_id, asistencia_id, tipo, hora_tolerancia, motivo, autorizado_por
             FROM justificaciones_asistencia 
             WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+               OR asistencia_id IN (
+                   SELECT id FROM registros_asistencia 
+                   WHERE (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+               )
         `);
         const justificacionesHoy = justifQuery.rows;
 
         // 2. Marcaciones de hoy (reloj Lima UTC -5)
         const hoyQuery = await db.query(`
             SELECT r.id, r.empleado_id, e.nombre_completo, e.area, r.fecha_hora_marcacion, r.metodo, r.tipo, r.horas_trabajadas, r.minutos_netos,
-                   e.hora_ingreso, e.hora_ingreso_sab
+                   e.hora_ingreso, e.hora_ingreso_sab, e.dias_laborables
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
             WHERE (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
@@ -1117,6 +1121,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
                             empleado_id: reg.empleado_id,
                             nombre: reg.nombre_completo,
                             area: reg.area,
+                            fecha_hora_marcacion: reg.fecha_hora_marcacion,
                             hora_ingreso: fechaMarc.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' }),
                             turno: horaPactada,
                             minutos_retraso: difMin,
@@ -1159,6 +1164,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
                 tipo: r.tipo,
                 metodo: r.metodo,
                 horas_trabajadas: r.horas_trabajadas,
+                fecha_hora_marcacion: r.fecha_hora_marcacion,
                 hora: f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' })
             };
         });
@@ -1246,10 +1252,14 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
                j.hora_tolerancia, j.motivo AS motivo_justificacion, j.autorizado_por
         FROM registros_asistencia r
         JOIN empleados e ON r.empleado_id = e.id
-        LEFT JOIN justificaciones_asistencia j ON (
-            j.asistencia_id = r.id OR 
-            (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
-        )
+        LEFT JOIN LATERAL (
+            SELECT j.id, j.tipo, j.hora_tolerancia, j.motivo, j.autorizado_por
+            FROM justificaciones_asistencia j
+            WHERE (j.asistencia_id = r.id) OR 
+                  (j.empleado_id = r.empleado_id AND j.fecha = (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date)
+            ORDER BY (j.asistencia_id = r.id) DESC, j.id DESC
+            LIMIT 1
+        ) j ON true
         WHERE 1=1
     `;
     const regValues = [];
@@ -1333,6 +1343,13 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
             empleado_id: r.empleado_id,
             nombre_completo: r.nombre_completo,
             area: r.area || 'General',
+            hora_ingreso: r.hora_ingreso,
+            hora_ingreso_sab: r.hora_ingreso_sab,
+            dias_laborables: r.dias_laborables,
+            justificacion_id: r.justificacion_id,
+            tipo_justificacion: r.tipo_justificacion,
+            hora_tolerancia: r.hora_tolerancia,
+            autorizado_por: r.autorizado_por,
             fecha_hora_marcacion: r.fecha_hora_marcacion,
             fecha: fechaStr,
             hora: horaStr,
@@ -1382,6 +1399,13 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
                             empleado_id: emp.id,
                             nombre_completo: emp.nombre_completo,
                             area: emp.area || 'General',
+                            hora_ingreso: emp.hora_ingreso,
+                            hora_ingreso_sab: emp.hora_ingreso_sab,
+                            dias_laborables: emp.dias_laborables,
+                            justificacion_id: justif ? justif.id : null,
+                            tipo_justificacion: justif ? justif.tipo : null,
+                            hora_tolerancia: justif ? justif.hora_tolerancia : null,
+                            autorizado_por: justif ? justif.autorizado_por : null,
                             fecha_hora_marcacion: `${dStr}T13:00:00.000Z`,
                             fecha: dStr,
                             hora: '-',
