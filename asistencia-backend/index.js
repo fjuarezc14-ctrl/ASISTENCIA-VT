@@ -335,15 +335,17 @@ function calcularHorasEfectivas(fechaIngreso, fechaSalida, emp, diaSemana) {
     const minutosTotales = Math.max(0, Math.round(difMs / (1000 * 60)));
 
     let minutosDescuentoRefrigerio = 0;
-    // Si es sábado (diaSemana === 6), es medio turno: NO se descuenta almuerzo
-    if (diaSemana !== 6) {
+    const esFlexible = emp?.hora_ingreso === 'FLEXIBLE' || (emp?.dias_laborables && emp?.dias_laborables.toLowerCase().includes('flexible'));
+
+    // Si es sábado (diaSemana === 6) o modalidad flexible: NO se descuenta refrigerio
+    if (diaSemana !== 6 && !esFlexible) {
         // Lunes a Viernes: calcular duración de refrigerio pactada (default 120 min = 2 horas)
         let duracionRefrigerio = 120;
         if (emp?.inicio_refrigerio && emp?.fin_refrigerio) {
             const [hI, mI] = emp.inicio_refrigerio.split(':').map(Number);
             const [hF, mF] = emp.fin_refrigerio.split(':').map(Number);
             const calc = (hF * 60 + mF) - (hI * 60 + mI);
-            if (calc > 0) duracionRefrigerio = calc;
+            duracionRefrigerio = calc >= 0 ? calc : 0;
         }
 
         // Solo descontar si la jornada fue de 5 horas o más (300 minutos)
@@ -369,9 +371,10 @@ function calcularFechaSalidaAuto(fechaIngreso, emp) {
 
     // Lunes a Viernes: 20:00 (8:00 PM). Sábado: hora_salida_sab (por defecto 13:00)
     let horaSalidaTarget = diaSemana === 6 ? (emp?.hora_salida_sab || '13:00') : '20:00';
+    if (!horaSalidaTarget || horaSalidaTarget === 'FLEXIBLE') horaSalidaTarget = '20:00';
     const [hS, mS] = horaSalidaTarget.split(':').map(Number);
-    const hSStr = String(hS).padStart(2, '0');
-    const mSStr = String(mS || 0).padStart(2, '0');
+    const hSStr = String(isNaN(hS) ? 20 : hS).padStart(2, '0');
+    const mSStr = String(isNaN(mS) ? 0 : mS).padStart(2, '0');
 
     // Construcción exacta en hora local de Perú (-05:00)
     let fechaSalida = new Date(`${anioP}-${mesP}-${diaP}T${hSStr}:${mSStr}:00-05:00`);
@@ -431,11 +434,12 @@ async function ejecutarAutoCierreJornadas(forzarTodo = false) {
         } else if (forzarTodo) {
             // Cierre forzado manual desde el panel
             debeCerrar = true;
-        } else if (diaSemanaIngreso === 6 && horaActualLima >= 14) {
-            // Sábado después de las 2:00 PM
+        } else if (diaSemanaIngreso === 6 && horaActualLima >= 15) {
+            // Sábado después de las 3:00 PM (15:00)
             debeCerrar = true;
-        } else if (horaActualLima >= 20) {
-            // Lunes a viernes a partir de las 8:00 PM (20:00)
+        } else if (horaActualLima >= 23) {
+            // Lunes a viernes a partir de las 11:00 PM (23:00)
+            // Permite salidas flexibles hasta las 11:00 PM, y si no marcaron, registra salida a las 8:00 PM
             debeCerrar = true;
         }
 
@@ -1082,40 +1086,56 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
             if (reg.tipo === 'INGRESO') {
                 idsPresentes.add(reg.empleado_id);
 
-                // Calcular tardanza
+                // Calcular tardanza (excepto si tiene horario flexible / practicante)
                 const horaPactada = diaSemana === 6 ? (reg.hora_ingreso_sab || '08:00') : (reg.hora_ingreso || '08:00');
-                const [hP, mP] = horaPactada.split(':').map(Number);
-                const minutosPactados = hP * 60 + mP;
+                const esFlexible = horaPactada === 'FLEXIBLE' || reg.hora_ingreso === 'FLEXIBLE' || (reg.dias_laborables && reg.dias_laborables.toLowerCase().includes('flexible'));
 
-                const fechaMarc = new Date(reg.fecha_hora_marcacion);
-                const fechaMarcLima = new Date(fechaMarc.getTime() - (5 * 60 * 60 * 1000));
-                const minutosMarc = fechaMarcLima.getUTCHours() * 60 + fechaMarcLima.getUTCMinutes();
+                if (!esFlexible) {
+                    const [hP, mP] = horaPactada.split(':').map(Number);
+                    const minutosPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
 
-                const difMin = minutosMarc - minutosPactados;
-                if (difMin > 5) {
-                    const justif = justificacionesHoy.find(j => 
-                        (j.asistencia_id && j.asistencia_id === reg.id) || 
-                        (j.empleado_id === reg.empleado_id && (j.tipo === 'TARDANZA_JUSTIFICADA' || j.tipo === 'TOLERANCIA_PREVIA'))
-                    );
+                    const fechaMarc = new Date(reg.fecha_hora_marcacion);
+                    const partesMarc = new Intl.DateTimeFormat('es-PE', {
+                        timeZone: 'America/Lima',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        hourCycle: 'h23'
+                    }).formatToParts(fechaMarc);
+                    const hMarc = parseInt(partesMarc.find(p => p.type === 'hour').value, 10);
+                    const mMarc = parseInt(partesMarc.find(p => p.type === 'minute').value, 10);
+                    const minutosMarc = hMarc * 60 + mMarc;
 
-                    tardanzasList.push({
-                        asistencia_id: reg.id,
-                        empleado_id: reg.empleado_id,
-                        nombre: reg.nombre_completo,
-                        area: reg.area,
-                        hora_ingreso: fechaMarcLima.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                        turno: horaPactada,
-                        minutos_retraso: difMin,
-                        justificado: !!justif,
-                        justificacion_id: justif ? justif.id : null,
-                        motivo_justificacion: justif ? justif.motivo : null
-                    });
+                    const difMin = minutosMarc - minutosPactados;
+                    if (difMin > 5) {
+                        const justif = justificacionesHoy.find(j => 
+                            (j.asistencia_id && j.asistencia_id === reg.id) || 
+                            (j.empleado_id === reg.empleado_id && (j.tipo === 'TARDANZA_JUSTIFICADA' || j.tipo === 'TOLERANCIA_PREVIA'))
+                        );
+
+                        tardanzasList.push({
+                            asistencia_id: reg.id,
+                            empleado_id: reg.empleado_id,
+                            nombre: reg.nombre_completo,
+                            area: reg.area,
+                            hora_ingreso: fechaMarc.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' }),
+                            turno: horaPactada,
+                            minutos_retraso: difMin,
+                            justificado: !!justif,
+                            justificacion_id: justif ? justif.id : null,
+                            motivo_justificacion: justif ? justif.motivo : null
+                        });
+                    }
                 }
             }
         });
 
-        // 4. Inasistencias de hoy (empleados activos sin ingreso)
-        const inasistenciasList = empleados.filter(e => !idsPresentes.has(e.id)).map(e => {
+        // 4. Inasistencias de hoy (empleados activos sin ingreso, excluyendo horario flexible)
+        const inasistenciasList = empleados.filter(e => {
+            if (idsPresentes.has(e.id)) return false;
+            const esFlex = e.hora_ingreso === 'FLEXIBLE' || (e.dias_laborables && e.dias_laborables.toLowerCase().includes('flexible'));
+            if (esFlex) return false; // Practicantes / horario flexible no computan falta automática
+            return true;
+        }).map(e => {
             const justifInasist = justificacionesHoy.find(j => j.empleado_id === e.id);
             return {
                 empleado_id: e.id,
@@ -1387,23 +1407,39 @@ app.get('/api/reportes/excel', verificarAdmin, async (req, res) => {
             const tieneJustificacion = !!r.justificacion_id;
 
             if (esIngreso) {
-                const diaSem = fLima.getUTCDay();
+                const diaSem = f.getUTCDay();
                 const horaPactada = diaSem === 6 ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
-                const [hP, mP] = horaPactada.split(':').map(Number);
-                const minPactados = hP * 60 + mP;
-                const minMarc = fLima.getUTCHours() * 60 + fLima.getUTCMinutes();
-                const difMin = minMarc - minPactados;
+                const esFlexible = horaPactada === 'FLEXIBLE' || r.hora_ingreso === 'FLEXIBLE' || (r.dias_laborables && r.dias_laborables.toLowerCase().includes('flexible'));
 
-                if (difMin > 5) {
-                    if (tieneJustificacion) {
-                        minTardanza = 0; // Exonerado por Gerencia
-                        puntualidadStr = 'Tardanza Justificada';
-                    } else {
-                        minTardanza = difMin;
-                        puntualidadStr = `Tardanza (+${difMin}m)`;
-                    }
+                if (esFlexible) {
+                    minTardanza = 0;
+                    puntualidadStr = 'Flexible';
                 } else {
-                    puntualidadStr = 'A Tiempo';
+                    const [hP, mP] = horaPactada.split(':').map(Number);
+                    const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
+
+                    const partesMarc = new Intl.DateTimeFormat('es-PE', {
+                        timeZone: 'America/Lima',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        hourCycle: 'h23'
+                    }).formatToParts(f);
+                    const hMarc = parseInt(partesMarc.find(p => p.type === 'hour').value, 10);
+                    const mMarc = parseInt(partesMarc.find(p => p.type === 'minute').value, 10);
+                    const minMarc = hMarc * 60 + mMarc;
+                    const difMin = minMarc - minPactados;
+
+                    if (difMin > 5) {
+                        if (tieneJustificacion) {
+                            minTardanza = 0; // Exonerado por Gerencia
+                            puntualidadStr = 'Tardanza Justificada';
+                        } else {
+                            minTardanza = difMin;
+                            puntualidadStr = `Tardanza (+${difMin}m)`;
+                        }
+                    } else {
+                        puntualidadStr = 'A Tiempo';
+                    }
                 }
             }
 

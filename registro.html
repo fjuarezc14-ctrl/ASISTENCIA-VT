@@ -586,7 +586,35 @@
                     </select>
                 </div>
 
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+                <!-- PRESETS RÁPIDOS DE JORNADA -->
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-2 tracking-wider">Presets Rápidos de Jornada</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button type="button" onclick="aplicarPresetJornadaReg('completo')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 text-xs font-semibold text-gray-700 hover:text-blue-700 transition text-center active:scale-95">
+                            🏢 T. Completo<br><span class="text-[10px] text-gray-400 font-normal">08:00 a 18:00</span>
+                        </button>
+                        <button type="button" onclick="aplicarPresetJornadaReg('medio_manana')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 text-xs font-semibold text-gray-700 hover:text-emerald-700 transition text-center active:scale-95">
+                            🌅 Medio T. Mañana<br><span class="text-[10px] text-gray-400 font-normal">08:00 a 13:00</span>
+                        </button>
+                        <button type="button" onclick="aplicarPresetJornadaReg('medio_tarde')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-amber-50 hover:border-amber-300 text-xs font-semibold text-gray-700 hover:text-amber-700 transition text-center active:scale-95">
+                            🌆 Medio T. Tarde<br><span class="text-[10px] text-gray-400 font-normal">14:00 a 19:00</span>
+                        </button>
+                        <button type="button" onclick="aplicarPresetJornadaReg('flexible')" class="py-2 px-2.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 text-xs font-semibold text-purple-700 transition text-center active:scale-95">
+                            🎯 Horario Flexible<br><span class="text-[10px] text-purple-600 font-semibold">Practicantes</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BANNER DE HORARIO FLEXIBLE ACTIVO -->
+                <div id="reg-banner-flexible" class="hidden p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 font-medium flex items-start gap-2.5">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-600 shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="font-bold text-purple-950">Modalidad Flexible Activa:</span>
+                        El colaborador no tiene horario estricto de entrada ni de salida. Todas sus entradas se registrarán como <b>Flexible</b> (sin tardanzas) y sus horas efectivas se computarán según el tiempo neto entre su ingreso y salida. No genera faltas automáticas.
+                    </div>
+                </div>
+
+                <div id="reg-bloque-horarios" class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4 transition-opacity">
                     <div>
                         <h4 class="text-sm font-bold text-gray-800 mb-2.5 flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i> Días Laborables</h4>
                         <div class="flex gap-2 flex-wrap">
@@ -734,7 +762,7 @@
                 <!-- PRESETS RÁPIDOS DE JORNADA -->
                 <div>
                     <label class="block text-xs font-bold uppercase text-gray-500 mb-2 tracking-wider">Presets Rápidos de Jornada</label>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button type="button" onclick="aplicarPresetJornada('completo')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 text-xs font-semibold text-gray-700 hover:text-blue-700 transition text-center active:scale-95">
                             🏢 T. Completo<br><span class="text-[10px] text-gray-400 font-normal">08:00 a 18:00</span>
                         </button>
@@ -744,11 +772,23 @@
                         <button type="button" onclick="aplicarPresetJornada('medio_tarde')" class="py-2 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-amber-50 hover:border-amber-300 text-xs font-semibold text-gray-700 hover:text-amber-700 transition text-center active:scale-95">
                             🌆 Medio T. Tarde<br><span class="text-[10px] text-gray-400 font-normal">14:00 a 19:00</span>
                         </button>
+                        <button type="button" onclick="aplicarPresetJornada('flexible')" class="py-2 px-2.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 text-xs font-semibold text-purple-700 transition text-center active:scale-95">
+                            🎯 Horario Flexible<br><span class="text-[10px] text-purple-600 font-semibold">Practicantes</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BANNER DE HORARIO FLEXIBLE ACTIVO -->
+                <div id="edit-banner-flexible" class="hidden p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 font-medium flex items-start gap-2.5">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-600 shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="font-bold text-purple-950">Modalidad Flexible Activa:</span>
+                        El colaborador no tiene horario estricto de entrada ni de salida. Todas sus entradas se registrarán como <b>Flexible</b> (sin tardanzas) y sus horas efectivas se computarán según el tiempo neto entre su ingreso y salida. No genera faltas automáticas.
                     </div>
                 </div>
 
                 <!-- CONFIGURACIÓN DETALLADA DE HORARIO -->
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+                <div id="edit-bloque-horarios" class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4 transition-opacity">
                     <div>
                         <h4 class="text-sm font-bold text-gray-800 mb-2.5 flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i> Días Laborables</h4>
                         <div class="flex gap-2 flex-wrap">
@@ -1252,11 +1292,31 @@
                          <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Sin Calibrar
                        </span>`;
 
+                const esFlexible = String(emp.hora_ingreso || '').toUpperCase() === 'FLEXIBLE' || 
+                                   (emp.dias_laborables && emp.dias_laborables.toLowerCase().includes('flexible'));
+
                 const tieneSab = emp.dias_laborables && emp.dias_laborables.includes('Sáb');
                 const horarioSabHtml = tieneSab 
                     ? `<div class="text-[11px] text-indigo-700 font-semibold mt-1"><span class="bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">Sáb: ${emp.hora_ingreso_sab || '08:00'} - ${emp.hora_salida_sab || '13:00'}</span></div>` 
                     : '';
                 const refrigerioHtml = `<div class="text-[11px] text-amber-700 font-medium mt-1"><span class="bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Refrigerio: ${emp.inicio_refrigerio || '13:00'} - ${emp.fin_refrigerio || '15:00'}</span></div>`;
+
+                let horarioColHtml = '';
+                if (esFlexible) {
+                    horarioColHtml = `
+                        <div class="inline-flex items-center gap-1.5 bg-purple-50 text-purple-800 px-2.5 py-1 rounded-lg border border-purple-200 text-xs font-bold shadow-sm">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-600"></i>
+                            <span>Horario Flexible</span>
+                        </div>
+                        <div class="text-[10px] text-purple-600 font-medium mt-1">Practicante / Sin tardanzas</div>
+                    `;
+                } else {
+                    horarioColHtml = `
+                        <div><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium text-xs border border-blue-100">${emp.hora_ingreso || '08:00'} - ${emp.hora_salida || '18:00'}</span></div>
+                        ${horarioSabHtml}
+                        ${refrigerioHtml}
+                    `;
+                }
 
                 tr.innerHTML = `
                     <td class="px-5 py-3.5 font-mono text-gray-400 text-xs font-bold">#${emp.id}</td>
@@ -1271,9 +1331,7 @@
                     </td>
                     <td class="px-5 py-3.5 text-xs text-gray-600 font-medium">${emp.dias_laborables || 'Lun, Mar, Mié, Jue, Vie, Sáb'}</td>
                     <td class="px-5 py-3.5">
-                        <div><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium text-xs border border-blue-100">${emp.hora_ingreso || '08:00'} - ${emp.hora_salida || '18:00'}</span></div>
-                        ${horarioSabHtml}
-                        ${refrigerioHtml}
+                        ${horarioColHtml}
                     </td>
                     <td class="px-5 py-3.5">${facialBadge}</td>
                     <td class="px-5 py-3.5 text-center">${estadoBadge}</td>
@@ -1294,6 +1352,51 @@
             });
 
             lucide.createIcons();
+        }
+
+        let modoFlexibleEdit = false;
+        let modoFlexibleReg = false;
+
+        function setModoFlexibleEdit(activo) {
+            modoFlexibleEdit = !!activo;
+            const banner = document.getElementById('edit-banner-flexible');
+            const bloque = document.getElementById('edit-bloque-horarios');
+            const hIng = document.getElementById('edit-hora-ingreso');
+            const hSal = document.getElementById('edit-hora-salida');
+
+            if (banner) banner.classList.toggle('hidden', !modoFlexibleEdit);
+            if (bloque) {
+                if (modoFlexibleEdit) {
+                    bloque.classList.add('opacity-40', 'pointer-events-none');
+                    if (hIng) hIng.required = false;
+                    if (hSal) hSal.required = false;
+                } else {
+                    bloque.classList.remove('opacity-40', 'pointer-events-none');
+                    if (hIng) hIng.required = true;
+                    if (hSal) hSal.required = true;
+                }
+            }
+        }
+
+        function setModoFlexibleReg(activo) {
+            modoFlexibleReg = !!activo;
+            const banner = document.getElementById('reg-banner-flexible');
+            const bloque = document.getElementById('reg-bloque-horarios');
+            const hIng = document.getElementById('reg-hora-ingreso');
+            const hSal = document.getElementById('reg-hora-salida');
+
+            if (banner) banner.classList.toggle('hidden', !modoFlexibleReg);
+            if (bloque) {
+                if (modoFlexibleReg) {
+                    bloque.classList.add('opacity-40', 'pointer-events-none');
+                    if (hIng) hIng.required = false;
+                    if (hSal) hSal.required = false;
+                } else {
+                    bloque.classList.remove('opacity-40', 'pointer-events-none');
+                    if (hIng) hIng.required = true;
+                    if (hSal) hSal.required = true;
+                }
+            }
         }
 
         function abrirModalEditarColaborador(id) {
@@ -1326,13 +1429,21 @@
                 }
             });
 
-            // Horarios
-            document.getElementById('edit-hora-ingreso').value = emp.hora_ingreso ? emp.hora_ingreso.substring(0, 5) : '08:00';
-            document.getElementById('edit-hora-salida').value = emp.hora_salida ? emp.hora_salida.substring(0, 5) : '18:00';
-            document.getElementById('edit-hora-ingreso-sab').value = emp.hora_ingreso_sab ? emp.hora_ingreso_sab.substring(0, 5) : '08:00';
-            document.getElementById('edit-hora-salida-sab').value = emp.hora_salida_sab ? emp.hora_salida_sab.substring(0, 5) : '13:00';
-            document.getElementById('edit-inicio-refrigerio').value = emp.inicio_refrigerio ? emp.inicio_refrigerio.substring(0, 5) : '13:00';
-            document.getElementById('edit-fin-refrigerio').value = emp.fin_refrigerio ? emp.fin_refrigerio.substring(0, 5) : '15:00';
+            // Horarios y modo flexible
+            const esFlexible = String(emp.hora_ingreso || '').toUpperCase() === 'FLEXIBLE' || 
+                               (emp.dias_laborables && emp.dias_laborables.toLowerCase().includes('flexible'));
+
+            if (esFlexible) {
+                setModoFlexibleEdit(true);
+            } else {
+                setModoFlexibleEdit(false);
+                document.getElementById('edit-hora-ingreso').value = emp.hora_ingreso ? emp.hora_ingreso.substring(0, 5) : '08:00';
+                document.getElementById('edit-hora-salida').value = emp.hora_salida ? emp.hora_salida.substring(0, 5) : '18:00';
+                document.getElementById('edit-hora-ingreso-sab').value = emp.hora_ingreso_sab ? emp.hora_ingreso_sab.substring(0, 5) : '08:00';
+                document.getElementById('edit-hora-salida-sab').value = emp.hora_salida_sab ? emp.hora_salida_sab.substring(0, 5) : '13:00';
+                document.getElementById('edit-inicio-refrigerio').value = emp.inicio_refrigerio ? emp.inicio_refrigerio.substring(0, 5) : '13:00';
+                document.getElementById('edit-fin-refrigerio').value = emp.fin_refrigerio ? emp.fin_refrigerio.substring(0, 5) : '15:00';
+            }
 
             toggleEditSabado();
 
@@ -1359,6 +1470,13 @@
         }
 
         function aplicarPresetJornada(tipo) {
+            if (tipo === 'flexible') {
+                setModoFlexibleEdit(true);
+                mostrarToast('info', 'Preset aplicado: Horario Flexible (Practicantes)');
+                return;
+            }
+
+            setModoFlexibleEdit(false);
             const horaIngreso = document.getElementById('edit-hora-ingreso');
             const horaSalida = document.getElementById('edit-hora-salida');
             const inicioRef = document.getElementById('edit-inicio-refrigerio');
@@ -1366,28 +1484,66 @@
             const sabCheck = document.getElementById('edit-dia-Sab');
 
             if (tipo === 'completo') {
-                horaIngreso.value = '08:00';
-                horaSalida.value = '18:00';
-                inicioRef.value = '13:00';
-                finRef.value = '15:00';
+                if (horaIngreso) horaIngreso.value = '08:00';
+                if (horaSalida) horaSalida.value = '18:00';
+                if (inicioRef) inicioRef.value = '13:00';
+                if (finRef) finRef.value = '15:00';
                 if (sabCheck) sabCheck.checked = true;
                 toggleEditSabado();
                 mostrarToast('info', 'Preset aplicado: Tiempo Completo (08:00 a 18:00)');
             } else if (tipo === 'medio_manana') {
-                horaIngreso.value = '08:00';
-                horaSalida.value = '13:00';
-                inicioRef.value = '13:00';
-                finRef.value = '13:00';
+                if (horaIngreso) horaIngreso.value = '08:00';
+                if (horaSalida) horaSalida.value = '13:00';
+                if (inicioRef) inicioRef.value = '13:00';
+                if (finRef) finRef.value = '13:00';
                 if (sabCheck) sabCheck.checked = false;
                 toggleEditSabado();
                 mostrarToast('info', 'Preset aplicado: Medio Tiempo Mañana (08:00 a 13:00)');
             } else if (tipo === 'medio_tarde') {
-                horaIngreso.value = '14:00';
-                horaSalida.value = '19:00';
-                inicioRef.value = '14:00';
-                finRef.value = '14:00';
+                if (horaIngreso) horaIngreso.value = '14:00';
+                if (horaSalida) horaSalida.value = '19:00';
+                if (inicioRef) inicioRef.value = '14:00';
+                if (finRef) finRef.value = '14:00';
                 if (sabCheck) sabCheck.checked = false;
                 toggleEditSabado();
+                mostrarToast('info', 'Preset aplicado: Medio Tiempo Tarde (14:00 a 19:00)');
+            }
+        }
+
+        function aplicarPresetJornadaReg(tipo) {
+            if (tipo === 'flexible') {
+                setModoFlexibleReg(true);
+                mostrarToast('info', 'Preset aplicado: Horario Flexible (Practicantes)');
+                return;
+            }
+
+            setModoFlexibleReg(false);
+            const horaIngreso = document.getElementById('reg-hora-ingreso');
+            const horaSalida = document.getElementById('reg-hora-salida');
+            const inicioRef = document.getElementById('reg-inicio-refrigerio');
+            const finRef = document.getElementById('reg-fin-refrigerio');
+            const sabCheck = document.getElementById('chk-dia-sab');
+
+            if (tipo === 'completo') {
+                if (horaIngreso) horaIngreso.value = '08:00';
+                if (horaSalida) horaSalida.value = '18:00';
+                if (inicioRef) inicioRef.value = '13:00';
+                if (finRef) finRef.value = '15:00';
+                if (sabCheck) sabCheck.checked = true;
+                mostrarToast('info', 'Preset aplicado: Tiempo Completo (08:00 a 18:00)');
+            } else if (tipo === 'medio_manana') {
+                if (horaIngreso) horaIngreso.value = '08:00';
+                if (horaSalida) horaSalida.value = '13:00';
+                if (inicioRef) inicioRef.value = '13:00';
+                if (finRef) finRef.value = '13:00';
+                if (sabCheck) sabCheck.checked = false;
+                mostrarToast('info', 'Preset aplicado: Medio Tiempo Mañana (08:00 a 13:00)');
+            } else if (tipo === 'medio_tarde') {
+                if (horaIngreso) horaIngreso.value = '14:00';
+                if (horaSalida) horaSalida.value = '19:00';
+                if (inicioRef) inicioRef.value = '14:00';
+                if (finRef) finRef.value = '14:00';
+                if (sabCheck) sabCheck.checked = false;
                 mostrarToast('info', 'Preset aplicado: Medio Tiempo Tarde (14:00 a 19:00)');
             }
         }
@@ -1417,16 +1573,21 @@
                 return;
             }
 
+            let diasFinal = diasSeleccionados.join(', ');
+            if (modoFlexibleEdit && !diasFinal.includes('(Flexible)')) {
+                diasFinal += ' (Flexible)';
+            }
+
             const payload = {
                 nombre_completo: document.getElementById('edit-nombre').value.trim(),
                 area: document.getElementById('edit-area').value,
-                dias_laborables: diasSeleccionados.join(', '),
-                hora_ingreso: document.getElementById('edit-hora-ingreso').value,
-                hora_salida: document.getElementById('edit-hora-salida').value,
-                hora_ingreso_sab: document.getElementById('edit-hora-ingreso-sab').value || '08:00',
-                hora_salida_sab: document.getElementById('edit-hora-salida-sab').value || '13:00',
-                inicio_refrigerio: document.getElementById('edit-inicio-refrigerio').value || '13:00',
-                fin_refrigerio: document.getElementById('edit-fin-refrigerio').value || '15:00'
+                dias_laborables: diasFinal,
+                hora_ingreso: modoFlexibleEdit ? 'FLEXIBLE' : document.getElementById('edit-hora-ingreso').value,
+                hora_salida: modoFlexibleEdit ? 'FLEXIBLE' : document.getElementById('edit-hora-salida').value,
+                hora_ingreso_sab: modoFlexibleEdit ? 'FLEXIBLE' : (document.getElementById('edit-hora-ingreso-sab').value || '08:00'),
+                hora_salida_sab: modoFlexibleEdit ? 'FLEXIBLE' : (document.getElementById('edit-hora-salida-sab').value || '13:00'),
+                inicio_refrigerio: modoFlexibleEdit ? '13:00' : (document.getElementById('edit-inicio-refrigerio').value || '13:00'),
+                fin_refrigerio: modoFlexibleEdit ? '13:00' : (document.getElementById('edit-fin-refrigerio').value || '15:00')
             };
 
             if (pinVal) {
@@ -1523,12 +1684,14 @@
         const instruccionCaptura = document.getElementById('instruccion-captura');
 
         async function abrirModalColaborador() {
+            setModoFlexibleReg(false);
             modalColaborador.classList.remove('hidden');
             resetearIndicadoresMuestras();
             await iniciarCamaraRegistro();
         }
 
         function cerrarModalColaborador() {
+            setModoFlexibleReg(false);
             modalColaborador.classList.add('hidden');
             detenerCamaraRegistro();
             resetearIndicadoresMuestras();
@@ -1652,7 +1815,10 @@
             const inicioRefrigerio = document.getElementById('reg-inicio-refrigerio')?.value || '13:00';
             const finRefrigerio = document.getElementById('reg-fin-refrigerio')?.value || '14:00';
             const diasChecked = Array.from(document.querySelectorAll('input[name="dia"]:checked')).map(c => c.value);
-            const diasTexto = diasChecked.length > 0 ? diasChecked.join(', ') : 'Lun, Mar, Mié, Jue, Vie, Sáb';
+            let diasTexto = diasChecked.length > 0 ? diasChecked.join(', ') : 'Lun, Mar, Mié, Jue, Vie, Sáb';
+            if (modoFlexibleReg && !diasTexto.includes('(Flexible)')) {
+                diasTexto += ' (Flexible)';
+            }
 
             if (!nombre) return mostrarToast('error', 'Ingrese el nombre completo.');
             if (!pin || pin.length !== 4) return mostrarToast('error', 'El PIN debe tener exactamente 4 números.');
@@ -1714,12 +1880,12 @@
                     face_descriptor: descriptores,
                     area: area,
                     dias_laborables: diasTexto,
-                    hora_ingreso: horaIngreso,
-                    hora_salida: horaSalida,
-                    hora_ingreso_sab: horaIngresoSab,
-                    hora_salida_sab: horaSalidaSab,
-                    inicio_refrigerio: inicioRefrigerio,
-                    fin_refrigerio: finRefrigerio
+                    hora_ingreso: modoFlexibleReg ? 'FLEXIBLE' : horaIngreso,
+                    hora_salida: modoFlexibleReg ? 'FLEXIBLE' : horaSalida,
+                    hora_ingreso_sab: modoFlexibleReg ? 'FLEXIBLE' : horaIngresoSab,
+                    hora_salida_sab: modoFlexibleReg ? 'FLEXIBLE' : horaSalidaSab,
+                    inicio_refrigerio: modoFlexibleReg ? '13:00' : inicioRefrigerio,
+                    fin_refrigerio: modoFlexibleReg ? '13:00' : finRefrigerio
                 };
 
                 const res = await authFetch('/api/empleados', {
@@ -1999,29 +2165,35 @@
                 // Puntualidad
                 let puntualidadBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Salida</span>';
                 if (esIngreso) {
-                    const horaPactada = reg.hora_ingreso || '08:00';
-                    const [hP, mP] = horaPactada.split(':').map(Number);
-                    const minPactados = hP * 60 + mP;
+                    const esFlexibleReg = String(reg.hora_ingreso || '').toUpperCase() === 'FLEXIBLE' || (reg.dias_laborables && reg.dias_laborables.toLowerCase().includes('flexible'));
 
-                    const partes = new Intl.DateTimeFormat('es-PE', {
-                        timeZone: 'America/Lima',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hourCycle: 'h23'
-                    }).formatToParts(f);
-                    const horaMarc = parseInt(partes.find(p => p.type === 'hour').value, 10);
-                    const minutoMarc = parseInt(partes.find(p => p.type === 'minute').value, 10);
-                    const minMarc = horaMarc * 60 + minutoMarc;
-                    const difMin = minMarc - minPactados;
-
-                    if (difMin > 5) {
-                        if (reg.justificacion_id) {
-                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200" title="${reg.motivo_justificacion || 'Autorizado por Gerencia'}">Tardanza Justificada</span>`;
-                        } else {
-                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
-                        }
+                    if (esFlexibleReg) {
+                        puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">Flexible</span>`;
                     } else {
-                        puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
+                        const horaPactada = reg.hora_ingreso || '08:00';
+                        const [hP, mP] = horaPactada.split(':').map(Number);
+                        const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
+
+                        const partes = new Intl.DateTimeFormat('es-PE', {
+                            timeZone: 'America/Lima',
+                            hour: 'numeric',
+                            minute: 'numeric',
+                            hourCycle: 'h23'
+                        }).formatToParts(f);
+                        const horaMarc = parseInt(partes.find(p => p.type === 'hour').value, 10);
+                        const minutoMarc = parseInt(partes.find(p => p.type === 'minute').value, 10);
+                        const minMarc = horaMarc * 60 + minutoMarc;
+                        const difMin = minMarc - minPactados;
+
+                        if (difMin > 5) {
+                            if (reg.justificacion_id) {
+                                puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200" title="${reg.motivo_justificacion || 'Autorizado por Gerencia'}">Tardanza Justificada</span>`;
+                            } else {
+                                puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
+                            }
+                        } else {
+                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
+                        }
                     }
                 }
 
