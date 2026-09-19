@@ -2232,19 +2232,16 @@
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">Flexible</span>`;
                     } else if (tieneJustif) {
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200" title="${reg.motivo_justificacion || 'Autorizado por Gerencia'}">Tardanza Justificada</span>`;
-                    } else if (reg.puntualidad && reg.puntualidad.startsWith('Tardanza')) {
+                    } else if (reg.puntualidad && (reg.puntualidad.startsWith('Tardanza') || reg.puntualidad.startsWith('Tarde'))) {
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${reg.puntualidad}</span>`;
                     } else if (reg.min_tardanza > 0) {
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${reg.min_tardanza}m)</span>`;
                     } else if (reg.puntualidad === 'A Tiempo') {
                         puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
                     } else {
-                        // Fallback dinámico respetando sábado y horario del colaborador
+                        // Fallback dinámico respetando sábado, turno tarde (retorno refrigerio) y horario
                         const partesFecha = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', weekday: 'short' }).format(f).toLowerCase();
                         const esSabado = partesFecha.includes('sáb') || partesFecha.includes('sab') || f.getUTCDay() === 6;
-                        const horaPactada = esSabado ? (reg.hora_ingreso_sab || reg.hora_ingreso || '08:00') : (reg.hora_ingreso || '08:00');
-                        const [hP, mP] = horaPactada.split(':').map(Number);
-                        const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
 
                         const partes = new Intl.DateTimeFormat('es-PE', {
                             timeZone: 'America/Lima',
@@ -2255,10 +2252,17 @@
                         const horaMarc = parseInt(partes.find(p => p.type === 'hour').value, 10);
                         const minutoMarc = parseInt(partes.find(p => p.type === 'minute').value, 10);
                         const minMarc = horaMarc * 60 + minutoMarc;
+
+                        const hTurnoReg = parseInt((reg.hora_ingreso || '08:00').split(':')[0], 10);
+                        const esTardeReg = !isNaN(hTurnoReg) && hTurnoReg >= 13;
+                        const esTarde = !esSabado && (horaMarc >= 13 && !esTardeReg);
+                        const horaPactada = esSabado ? (reg.hora_ingreso_sab || reg.hora_ingreso || '08:00') : (esTarde ? (reg.fin_refrigerio || '15:00') : (reg.hora_ingreso || '08:00'));
+                        const [hP, mP] = horaPactada.split(':').map(Number);
+                        const minPactados = (isNaN(hP) ? (esTarde ? 15 : 8) : hP) * 60 + (isNaN(mP) ? 0 : mP);
                         const difMin = minMarc - minPactados;
 
                         if (difMin > 5) {
-                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Tardanza (+${difMin}m)</span>`;
+                            puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${esTarde ? 'Tarde' : 'Tardanza'} (+${difMin}m)</span>`;
                         } else {
                             puntualidadBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">A Tiempo</span>`;
                         }
@@ -2507,6 +2511,8 @@
                     } else if (esIngreso) {
                         if (reg.puntualidad && reg.puntualidad.includes('Justificada')) {
                             badgePuntualidad = '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">Tardanza Justificada</span>';
+                        } else if (reg.puntualidad && (reg.puntualidad.startsWith('Tardanza') || reg.puntualidad.startsWith('Tarde'))) {
+                            badgePuntualidad = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">${reg.puntualidad}</span>`;
                         } else if (reg.min_tardanza > 0) {
                             badgePuntualidad = `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">+${reg.min_tardanza} min tardanza</span>`;
                         } else if (reg.puntualidad === 'Flexible') {

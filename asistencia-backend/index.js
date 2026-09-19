@@ -550,16 +550,25 @@ async function procesarRegistroAsistencia(empleadoId, metodo, tipoSolicitado) {
                     ok: false,
                     status: 400,
                     accionSugerida: 'INGRESO',
-                    error: 'Usted ya completó su jornada marcando SALIDA el día de hoy.'
+                    error: 'Usted ya registró su SALIDA el día de hoy. Si terminó su refrigerio o inicia su turno, marque ENTRADA / INGRESO.'
                 };
             }
             if (ultimaMarcacion.tipo === 'SALIDA' && tipoAsistencia === 'INGRESO') {
-                return {
-                    ok: false,
-                    status: 400,
-                    accionSugerida: 'INGRESO',
-                    error: 'Usted ya completó su jornada laboral el día de hoy.'
-                };
+                // Verificar cuántos ingresos lleva hoy el colaborador para jornada partida (mañana y tarde)
+                const hoyMarks = await db.query(`
+                    SELECT tipo FROM registros_asistencia 
+                    WHERE empleado_id = $1 
+                      AND (fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                `, [empleadoId]);
+                const cantIngresosHoy = hoyMarks.rows.filter(m => m.tipo === 'INGRESO').length;
+                if (cantIngresosHoy >= 2) {
+                    return {
+                        ok: false,
+                        status: 400,
+                        accionSugerida: 'INGRESO',
+                        error: 'Usted ya completó los turnos de su jornada laboral el día de hoy.'
+                    };
+                }
             }
         }
 
@@ -1070,7 +1079,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
         // 2. Marcaciones de hoy (reloj Lima UTC -5)
         const hoyQuery = await db.query(`
             SELECT r.id, r.empleado_id, e.nombre_completo, e.area, r.fecha_hora_marcacion, r.metodo, r.tipo, r.horas_trabajadas, r.minutos_netos,
-                   e.hora_ingreso, e.hora_ingreso_sab, e.dias_laborables
+                   e.hora_ingreso, e.hora_ingreso_sab, e.dias_laborables, e.inicio_refrigerio, e.fin_refrigerio
             FROM registros_asistencia r
             JOIN empleados e ON r.empleado_id = e.id
             WHERE (r.fecha_hora_marcacion AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
@@ -1078,7 +1087,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
         `);
         const registrosHoy = hoyQuery.rows;
 
-        // 3. Presentes hoy
+        // 3. Presentes hoy y cálculo de puntualidad (con soporte para jornada partida mañana/tarde)
         const idsPresentes = new Set();
         const tardanzasList = [];
 
@@ -1086,28 +1095,47 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
         const ahoraLima = new Date(ahora.getTime() - (5 * 60 * 60 * 1000));
         const diaSemana = ahoraLima.getUTCDay(); // 6: Sábado
 
-        registrosHoy.forEach(reg => {
+        const mapaIngresosHoy = new Map();
+        const registrosHoyCron = [...registrosHoy].sort((a, b) => new Date(a.fecha_hora_marcacion) - new Date(b.fecha_hora_marcacion));
+
+        registrosHoyCron.forEach(reg => {
             if (reg.tipo === 'INGRESO') {
                 idsPresentes.add(reg.empleado_id);
 
-                // Calcular tardanza (excepto si tiene horario flexible / practicante)
-                const horaPactada = diaSemana === 6 ? (reg.hora_ingreso_sab || '08:00') : (reg.hora_ingreso || '08:00');
+                const numIngreso = (mapaIngresosHoy.get(reg.empleado_id) || 0) + 1;
+                mapaIngresosHoy.set(reg.empleado_id, numIngreso);
+
+                const fechaMarc = new Date(reg.fecha_hora_marcacion);
+                const partesMarc = new Intl.DateTimeFormat('es-PE', {
+                    timeZone: 'America/Lima',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hourCycle: 'h23'
+                }).formatToParts(fechaMarc);
+                const hMarc = parseInt(partesMarc.find(p => p.type === 'hour').value, 10);
+                const mMarc = parseInt(partesMarc.find(p => p.type === 'minute').value, 10);
+                const minutosMarc = hMarc * 60 + mMarc;
+
+                const hTurnoRegular = parseInt((reg.hora_ingreso || '08:00').split(':')[0], 10);
+                const esTurnoTardeRegular = !isNaN(hTurnoRegular) && hTurnoRegular >= 13;
+                const esSegundoIngreso = diaSemana !== 6 && (numIngreso >= 2 || (!esTurnoTardeRegular && hMarc >= 13));
+
+                let horaPactada = '08:00';
+                if (diaSemana === 6) {
+                    horaPactada = reg.hora_ingreso_sab || '08:00';
+                } else if (esSegundoIngreso) {
+                    // Retorno de Refrigerio / Tarde: Evaluar contra fin_refrigerio (default 15:00)
+                    horaPactada = reg.fin_refrigerio || '15:00';
+                } else {
+                    // Turno Mañana: Evaluar contra hora_ingreso
+                    horaPactada = reg.hora_ingreso || '08:00';
+                }
+
                 const esFlexible = horaPactada === 'FLEXIBLE' || reg.hora_ingreso === 'FLEXIBLE' || (reg.dias_laborables && reg.dias_laborables.toLowerCase().includes('flexible'));
 
                 if (!esFlexible) {
                     const [hP, mP] = horaPactada.split(':').map(Number);
-                    const minutosPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
-
-                    const fechaMarc = new Date(reg.fecha_hora_marcacion);
-                    const partesMarc = new Intl.DateTimeFormat('es-PE', {
-                        timeZone: 'America/Lima',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hourCycle: 'h23'
-                    }).formatToParts(fechaMarc);
-                    const hMarc = parseInt(partesMarc.find(p => p.type === 'hour').value, 10);
-                    const mMarc = parseInt(partesMarc.find(p => p.type === 'minute').value, 10);
-                    const minutosMarc = hMarc * 60 + mMarc;
+                    const minutosPactados = (isNaN(hP) ? (esSegundoIngreso ? 15 : 8) : hP) * 60 + (isNaN(mP) ? 0 : mP);
 
                     const difMin = minutosMarc - minutosPactados;
                     if (difMin > 5) {
@@ -1124,6 +1152,7 @@ app.get('/api/reportes/dashboard', verificarAdmin, async (req, res) => {
                             fecha_hora_marcacion: reg.fecha_hora_marcacion,
                             hora_ingreso: fechaMarc.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' }),
                             turno: horaPactada,
+                            es_segundo_ingreso: esSegundoIngreso,
                             minutos_retraso: difMin,
                             justificado: !!justif,
                             justificacion_id: justif ? justif.id : null,
@@ -1246,6 +1275,7 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
     let regQuery = `
         SELECT r.id, r.empleado_id, e.nombre_completo, e.area, 
                e.hora_ingreso, e.hora_ingreso_sab, e.dias_laborables,
+               e.inicio_refrigerio, e.fin_refrigerio,
                r.fecha_hora_marcacion, r.metodo, r.tipo, 
                r.horas_trabajadas, r.minutos_netos,
                j.id AS justificacion_id, j.tipo AS tipo_justificacion,
@@ -1283,7 +1313,11 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
     const setAsistencias = new Set();
     const registrosProcesados = [];
 
-    for (const r of filasRaw) {
+    // Ordenar cronológicamente (ASC) para contar marcaciones del día en orden natural
+    const filasCronologicas = [...filasRaw].sort((a, b) => new Date(a.fecha_hora_marcacion) - new Date(b.fecha_hora_marcacion));
+    const mapaIngresosDia = new Map(); // key: `${empleado_id}_${fechaStr}` -> contador
+
+    for (const r of filasCronologicas) {
         const f = new Date(r.fecha_hora_marcacion);
         const fechaStr = f.toLocaleDateString('sv', { timeZone: 'America/Lima' });
         const horaStr = f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Lima' });
@@ -1299,16 +1333,40 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
         let esJustificado = !!r.justificacion_id;
         let tieneTardanza = false;
         let motivoTexto = r.motivo_justificacion || '';
+        let esSegundoIngreso = false;
+        let horaPactada = '08:00';
 
         if (esIngreso) {
+            const keyIngreso = `${r.empleado_id}_${fechaStr}`;
+            const numIngreso = (mapaIngresosDia.get(keyIngreso) || 0) + 1;
+            mapaIngresosDia.set(keyIngreso, numIngreso);
+
             const partesLima = new Intl.DateTimeFormat('es-PE', {
                 timeZone: 'America/Lima',
                 hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
                 weekday: 'short'
             }).formatToParts(f);
             const weekday = partesLima.find(p => p.type === 'weekday')?.value?.toLowerCase() || '';
-            const esSabado = weekday.includes('sáb') || weekday.includes('sab');
-            const horaPactada = esSabado ? (r.hora_ingreso_sab || '08:00') : (r.hora_ingreso || '08:00');
+            const esSabado = weekday.includes('sáb') || weekday.includes('sab') || f.getUTCDay() === 6;
+
+            const hMarc = parseInt(partesLima.find(p => p.type === 'hour').value, 10);
+            const mMarc = parseInt(partesLima.find(p => p.type === 'minute').value, 10);
+            const minMarc = hMarc * 60 + mMarc;
+
+            const hTurnoRegular = parseInt((r.hora_ingreso || '08:00').split(':')[0], 10);
+            const esTurnoTardeRegular = !isNaN(hTurnoRegular) && hTurnoRegular >= 13;
+            esSegundoIngreso = !esSabado && (numIngreso >= 2 || (!esTurnoTardeRegular && hMarc >= 13));
+
+            if (esSabado) {
+                horaPactada = r.hora_ingreso_sab || '08:00';
+            } else if (esSegundoIngreso) {
+                // Turno Tarde / Retorno Refrigerio: Evaluar contra fin_refrigerio (default 15:00)
+                horaPactada = r.fin_refrigerio || '15:00';
+            } else {
+                // Turno Mañana: Evaluar contra horario matutino
+                horaPactada = r.hora_ingreso || '08:00';
+            }
+
             const esFlexible = horaPactada === 'FLEXIBLE' || r.hora_ingreso === 'FLEXIBLE' || (r.dias_laborables && r.dias_laborables.toLowerCase().includes('flexible'));
 
             if (esFlexible) {
@@ -1316,10 +1374,7 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
                 puntualidadStr = 'Flexible';
             } else {
                 const [hP, mP] = horaPactada.split(':').map(Number);
-                const minPactados = (isNaN(hP) ? 8 : hP) * 60 + (isNaN(mP) ? 0 : mP);
-                const hMarc = parseInt(partesLima.find(p => p.type === 'hour').value, 10);
-                const mMarc = parseInt(partesLima.find(p => p.type === 'minute').value, 10);
-                const minMarc = hMarc * 60 + mMarc;
+                const minPactados = (isNaN(hP) ? (esSegundoIngreso ? 15 : 8) : hP) * 60 + (isNaN(mP) ? 0 : mP);
                 const difMin = minMarc - minPactados;
 
                 if (difMin > 5) {
@@ -1330,7 +1385,7 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
                         if (!motivoTexto) motivoTexto = 'Autorizado por Gerencia (No descuenta)';
                     } else {
                         minTardanza = difMin; // Sujeto a descuento
-                        puntualidadStr = `Tardanza (+${difMin}m)`;
+                        puntualidadStr = esSegundoIngreso ? `Tarde (+${difMin}m)` : `Tardanza (+${difMin}m)`;
                     }
                 } else {
                     puntualidadStr = 'A Tiempo';
@@ -1345,6 +1400,10 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
             area: r.area || 'General',
             hora_ingreso: r.hora_ingreso,
             hora_ingreso_sab: r.hora_ingreso_sab,
+            inicio_refrigerio: r.inicio_refrigerio || '13:00',
+            fin_refrigerio: r.fin_refrigerio || '15:00',
+            turno_evaluado: horaPactada,
+            es_segundo_ingreso: esSegundoIngreso,
             dias_laborables: r.dias_laborables,
             justificacion_id: r.justificacion_id,
             tipo_justificacion: r.tipo_justificacion,
@@ -1366,6 +1425,9 @@ async function procesarReporteAsistencias({ db, empleado_id, periodo, tipo, fech
             es_falta: false
         });
     }
+
+    // Reordenar registrosProcesados descendentemente (más recientes arriba)
+    registrosProcesados.sort((a, b) => new Date(b.fecha_hora_marcacion) - new Date(a.fecha_hora_marcacion));
 
     // 5. Detectar Faltas / Inasistencias en el periodo
     const faltasProcesadas = [];
